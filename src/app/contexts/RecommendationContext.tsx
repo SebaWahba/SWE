@@ -7,7 +7,8 @@ interface WatchHistory {
   timestamp: string;
   watchDuration: number;
   totalDuration: number;
-  genre: string;
+  category: string;
+  tags: string[];
   completed: boolean;
   video?: Video;
 }

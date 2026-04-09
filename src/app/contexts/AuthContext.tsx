@@ -22,9 +22,7 @@ interface AuthContextType {
   user: User | null;
   signInWithGoogle: () => Promise<any>;
   signInWithEmail: (email: string, password: string) => Promise<void>;
-  signUp: (email: string, password: string, name?: string) => Promise<SignUpResult>;
-  resendVerificationEmail: (email: string) => Promise<any>;
-  getVerificationStatus: (email: string) => Promise<any>;
+  signUp: (email: string, password: string, name: string) => Promise<void>;
   signOut: () => Promise<void>;
   isLoading: boolean;
   accessToken: string | null;
@@ -127,23 +125,23 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   }, []);
 
-  const signUp = useCallback(async (email: string, password: string, name?: string) => {
+  const signUp = useCallback(async (email: string, password: string, name: string) => {
     try {
       setIsLoading(true);
       const data = await authApi.signUp(email, password, name);
-
-      return data as SignUpResult;
+      
+      if (data?.session && data?.user) {
+        setAccessToken(data.session.access_token);
+        setUser({
+          id: data.user.id,
+          name: data.user.name || name,
+          email: data.user.email || email,
+          picture: data.user.picture,
+        });
+      }
     } finally {
       setIsLoading(false);
     }
-  }, []);
-
-  const resendVerificationEmail = useCallback(async (email: string) => {
-    return await authApi.resendVerificationEmail(email);
-  }, []);
-
-  const getVerificationStatus = useCallback(async (email: string) => {
-    return await authApi.getVerificationStatus(email);
   }, []);
 
   const signOut = useCallback(async () => {
@@ -153,7 +151,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   return (
-    <AuthContext.Provider value={{ user, signInWithGoogle, signInWithEmail, signUp, resendVerificationEmail, getVerificationStatus, signOut, isLoading, accessToken }}>
+    <AuthContext.Provider value={{ user, signInWithGoogle, signInWithEmail, signUp, signOut, isLoading, accessToken }}>
       {children}
     </AuthContext.Provider>
   );
