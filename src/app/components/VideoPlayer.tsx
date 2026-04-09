@@ -13,6 +13,7 @@ export const VideoPlayer = forwardRef<HTMLVideoElement, VideoPlayerProps>(
     return (
       <video
         ref={ref}
+        src={src}
         poster={poster}
         controls
         playsInline
@@ -26,10 +27,6 @@ export const VideoPlayer = forwardRef<HTMLVideoElement, VideoPlayerProps>(
         }}
         onEnded={onEnded}
         onError={onError}
-        src={src} 
-        autoPlay 
-        muted      
-        width="100%"
       >
         <source src={src} type="video/mp4" />
         Your browser does not support the video tag.
