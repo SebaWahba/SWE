@@ -188,18 +188,27 @@ function LoginContent() {
       return;
     }
 
+    const normalizedEmail = email.trim();
+
+    if (isSignUp) {
+      const validationError = getSignUpValidationError(normalizedEmail, password);
+      if (validationError) {
+        toast.error(validationError);
+        return;
+      }
+    }
+
     try {
       if (isSignUp) {
-        await signUp(email, password, name);
+        const result = await signUp(normalizedEmail, password, name);
         toast.success("Account created successfully!", {
-          description: "You can now sign in with your credentials"
+          description: result.message || "Check your email for the verification link before signing in.",
+          duration: 7000,
         });
-        // Switch to sign-in mode after successful signup
-        setIsSignUp(false);
-        // Keep email filled in
-        setPassword('');
+
+        navigate(result.redirectTo || '/');
       } else {
-        await signInWithEmail(email, password);
+        await signInWithEmail(normalizedEmail, password);
         toast.success("Signed in successfully!");
         navigate("/browse");
       }
@@ -234,6 +243,23 @@ function LoginContent() {
           description: "Email or password is incorrect. Make sure your account exists and try again.",
           duration: 5000
         });
+      } else if (error.message?.includes('Invalid email or password')) {
+        toast.error("Invalid credentials", {
+          description: "Email or password is incorrect. Please try again.",
+          duration: 5000,
+        });
+      } else if (error.message?.includes('Email not verified')) {
+        toast.error("Email verification required", {
+          description: "Please verify your email before signing in. Sending a new verification link now.",
+          duration: 7000,
+        });
+
+        try {
+          await resendVerificationEmail(normalizedEmail);
+          toast.success('A fresh verification email has been sent.');
+        } catch (resendError: any) {
+          toast.error(resendError?.message || 'Could not resend verification email.');
+        }
       } else if (error.message?.includes('rate limit exceeded')) {
         toast.error("Too many attempts", {
           description: "Please wait a few minutes before trying again, or use Google Sign-In instead.",
