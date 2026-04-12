@@ -1411,8 +1411,21 @@ async function initializeVideosDatabase() {
   
   // Fix any broken storage URLs by replacing with working commondatastorage URLs
   const fixedVideos = allVideos.map(video => ({
-    ...video,
-    videoUrl: video.videoUrl.replace('https://storage.googleapis.com/', 'https://commondatastorage.googleapis.com/')
+    id: video.id,
+    title: video.title,
+    description: video.description,
+    genre: video.category,
+    releaseYear: video.year,
+    duration: parseInt(video.duration) || 0,
+    video_file: video.videoUrl.replace('https://storage.googleapis.com/', 'https://commondatastorage.googleapis.com/'),
+    status: 'ready',
+    intro_start: 0,
+    intro_end: 0,
+    recap_start: 0,
+    recap_end: 0,
+    uploaded_by: 'system',
+    created_at: new Date().toISOString(),
+    updated_at: new Date().toISOString(),
   }));
   
   await kv.set('videos_database', fixedVideos);

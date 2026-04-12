@@ -8,10 +8,10 @@ import { useRecommendations } from "../contexts/RecommendationContext";
 import { videoApi, Video } from "../lib/api";
 import { toast } from "sonner";
 import { PageErrorBoundary } from "../components/PageErrorBoundary";
-import { Sparkles, Plus, Share2, MessageSquare, ChevronLeft, Check, X, Send, Clock, Search } from "lucide-react";
+import { Sparkles, Plus, Share2, MessageSquare, ChevronLeft, Check, X, Send, Clock } from "lucide-react";
 import { projectId, publicAnonKey } from '/utils/supabase/info';
 
-const CATEGORIES = [
+const GENRES = [
   "All",
   "Nature & Wildlife",
   "Science & Space",
@@ -96,9 +96,9 @@ function WatchContent() {
     };
   }, [video, user, trackVideoWatch]);
 
-  // 2. Navigation Handler for Top Tabs
-  const handleCategoryClick = (category: string) => {
-    navigate(`/browse?category=${category}`);
+  // Navigation Handler for Top Tabs
+  const handleGenreClick = (genre: string) => {
+    navigate(`/browse?category=${genre}`);
   };
 
   // Check if video is in watchlist
@@ -179,10 +179,7 @@ function WatchContent() {
         question: userQuestion,
         videoId: video?.id,
         videoTitle: video?.title,
-        videoDescription: video?.description,
-        aiSummary: video?.aiSummary,
-        tags: video?.tags,
-        videoContent: video?.videoContent
+        videoDescription: video?.description
       })
     })
       .then(res => res.json())
@@ -269,15 +266,15 @@ function WatchContent() {
       <div className="pt-20 border-b border-gray-800 bg-black/50 backdrop-blur-md sticky top-0 z-10">
         <div className="container mx-auto px-4 overflow-x-auto no-scrollbar">
           <div className="flex gap-6 py-4">
-            {CATEGORIES.map((cat) => (
+            {GENRES.map((genre) => (
               <button
-                key={cat}
-                onClick={() => handleCategoryClick(cat)}
+                key={genre}
+                onClick={() => handleGenreClick(genre)}
                 className={`text-sm font-medium whitespace-nowrap transition-colors hover:text-purple-400 ${
-                  video.category === cat ? "text-purple-500 border-b-2 border-purple-500" : "text-gray-400"
+                  video.genre === genre ? "text-purple-500 border-b-2 border-purple-500" : "text-gray-400"
                 }`}
               >
-                {cat}
+                {genre}
               </button>
             ))}
           </div>
@@ -299,14 +296,13 @@ function WatchContent() {
                   playsInline 
                   preload="auto"
                   className="w-full h-full object-contain"
-                  poster={video.thumbnail}
                   onError={(e) => {
                     const videoEl = e.currentTarget;
                     console.error('Video playback error:', {
                       error: videoEl.error,
                       networkState: videoEl.networkState,
                       readyState: videoEl.readyState,
-                      src: video.videoUrl
+                      src: video.video_file
                     });
                     
                     // Provide more specific error messages
@@ -344,7 +340,7 @@ function WatchContent() {
                     console.log('Video can play');
                   }}
                 >
-                  <source src={video.videoUrl} type="video/mp4" />
+                  <source src={video.video_file} type="video/mp4" />
                   Your browser does not support the video tag.
                 </video>
               )}
@@ -383,10 +379,10 @@ function WatchContent() {
               <h1 className="text-3xl font-extrabold tracking-tight mb-3">{video.title}</h1>
               <div className="flex flex-wrap items-center gap-4 text-sm text-gray-400">
                 <span className="bg-purple-600/20 text-purple-400 px-3 py-1 rounded-full font-bold border border-purple-600/30">
-                  {video.category}
+                  {video.genre}
                 </span>
                 <span>•</span>
-                <span>{video.year}</span>
+                <span>{video.releaseYear}</span>
                 <span>•</span>
                 <span>{video.duration}</span>
               </div>
@@ -396,146 +392,11 @@ function WatchContent() {
               {video.description}
             </p>
 
-            {/* 5. The Gemini-Style AI Summary Section */}
-            <div className="mt-10 bg-gradient-to-br from-gray-900 via-gray-900 to-[#1a1025] border border-purple-500/20 p-8 rounded-[2rem] shadow-inner relative overflow-hidden">
-               <div className="absolute top-0 right-0 p-8 opacity-10">
-                 <Sparkles size={120} className="text-purple-500" />
-               </div>
-               
-               <div className="relative z-10">
-                  <div className="flex items-center gap-3 mb-4">
-                    <div className="bg-purple-500 p-2 rounded-lg">
-                      <Sparkles size={20} className="text-white" />
-                    </div>
-                    <h2 className="text-xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-purple-400 to-blue-400">
-                      AI Content Synthesis
-                    </h2>
-                  </div>
-                  
-                  <div className="space-y-4">
-                    <p className="text-gray-200 leading-relaxed text-lg">
-                      {video.aiSummary}
-                    </p>
-                    <div className="pt-4 flex gap-3">
-                      <button 
-                        onClick={() => setShowKeyMoments(!showKeyMoments)}
-                        className="text-xs bg-white/5 hover:bg-white/10 px-4 py-2 rounded-lg border border-white/10 transition-all"
-                      >
-                         ✨ Key Moments
-                      </button>
-                      <button 
-                        onClick={() => setShowTranscript(!showTranscript)}
-                        className="text-xs bg-white/5 hover:bg-white/10 px-4 py-2 rounded-lg border border-white/10 transition-all"
-                      >
-                         📝 Transcript Search
-                      </button>
-                    </div>
-                  </div>
-               </div>
-            </div>
 
-            {/* Key Moments Panel */}
-            {showKeyMoments && (
-              <motion.div
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                className="mt-6 bg-gray-900/50 border border-gray-800 rounded-2xl p-6"
-              >
-                <div className="flex items-center justify-between mb-4">
-                  <h3 className="text-lg font-bold flex items-center gap-2">
-                    <Clock size={20} className="text-purple-400" />
-                    Key Moments
-                  </h3>
-                  <button onClick={() => setShowKeyMoments(false)}>
-                    <X size={20} className="text-gray-400 hover:text-white" />
-                  </button>
-                </div>
-                <div className="space-y-3">
-                  {keyMoments.map((moment, i) => (
-                    <button
-                      key={i}
-                      onClick={() => {
-                        if (videoRef.current) {
-                          const [min, sec] = moment.time.split(':');
-                          videoRef.current.currentTime = parseInt(min) * 60 + parseInt(sec);
-                          videoRef.current.play();
-                        }
-                      }}
-                      className="w-full text-left p-4 bg-gray-800/50 hover:bg-gray-800 rounded-lg transition-colors group"
-                    >
-                      <div className="flex items-start gap-3">
-                        <span className="text-purple-400 font-mono text-sm">{moment.time}</span>
-                        <div className="flex-1">
-                          <div className="font-semibold text-white group-hover:text-purple-400 transition-colors">
-                            {moment.title}
-                          </div>
-                          <div className="text-sm text-gray-400 mt-1">{moment.description}</div>
-                        </div>
-                      </div>
-                    </button>
-                  ))}
-                </div>
-              </motion.div>
-            )}
 
-            {/* Transcript Search Panel */}
-            {showTranscript && (
-              <motion.div
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                className="mt-6 bg-gray-900/50 border border-gray-800 rounded-2xl p-6"
-              >
-                <div className="flex items-center justify-between mb-4">
-                  <h3 className="text-lg font-bold flex items-center gap-2">
-                    <Search size={20} className="text-purple-400" />
-                    Transcript Search
-                  </h3>
-                  <button onClick={() => setShowTranscript(false)}>
-                    <X size={20} className="text-gray-400 hover:text-white" />
-                  </button>
-                </div>
-                <input
-                  type="text"
-                  placeholder="Search transcript..."
-                  value={transcriptSearch}
-                  onChange={(e) => setTranscriptSearch(e.target.value)}
-                  className="w-full px-4 py-2 bg-gray-800 border border-gray-700 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:border-purple-500 mb-4"
-                />
-                <div className="space-y-2 max-h-96 overflow-y-auto">
-                  {filteredTranscript.map((entry, i) => (
-                    <button
-                      key={i}
-                      onClick={() => {
-                        if (videoRef.current) {
-                          const [min, sec] = entry.time.split(':');
-                          videoRef.current.currentTime = parseInt(min) * 60 + parseInt(sec);
-                          videoRef.current.play();
-                        }
-                      }}
-                      className="w-full text-left p-3 bg-gray-800/30 hover:bg-gray-800 rounded-lg transition-colors group"
-                    >
-                      <div className="flex gap-3">
-                        <span className="text-purple-400 font-mono text-xs">{entry.time}</span>
-                        <p className="text-sm text-gray-300 group-hover:text-white flex-1">
-                          {transcriptSearch && (
-                            <span dangerouslySetInnerHTML={{
-                              __html: entry.text.replace(
-                                new RegExp(`(${transcriptSearch})`, 'gi'),
-                                '<mark class="bg-purple-500/30 text-purple-300">$1</mark>'
-                              )
-                            }} />
-                          )}
-                          {!transcriptSearch && entry.text}
-                        </p>
-                      </div>
-                    </button>
-                  ))}
-                  {filteredTranscript.length === 0 && (
-                    <p className="text-center text-gray-500 py-8">No results found</p>
-                  )}
-                </div>
-              </motion.div>
-            )}
+
+
+
           </div>
 
           {/* RIGHT COLUMN: SIDEBAR */}
@@ -641,16 +502,7 @@ function WatchContent() {
               </motion.div>
             )}
 
-            <div className="p-6">
-              <h3 className="text-sm font-bold text-gray-500 uppercase tracking-widest mb-4">Topic Tags</h3>
-              <div className="flex flex-wrap gap-2">
-                {video.tags.map(tag => (
-                  <span key={tag} className="px-4 py-2 bg-gray-900 hover:bg-gray-800 border border-gray-800 rounded-xl text-xs text-gray-400 cursor-default transition-colors">
-                    #{tag}
-                  </span>
-                ))}
-              </div>
-            </div>
+
           </div>
 
         </div>

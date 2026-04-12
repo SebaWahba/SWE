@@ -1,4 +1,6 @@
 import { projectId, publicAnonKey } from '/utils/supabase/info';
+import { videos as Video, playlists, watch_history } from './table-definitions';
+import { createClient } from '@supabase/supabase-js';
 
 const API_BASE = `https://${projectId}.supabase.co/functions/v1/make-server-e24386a0`;
 
@@ -16,55 +18,38 @@ const getPublicHeaders = () => ({
   'Authorization': `Bearer ${publicAnonKey}`,
 });
 
-export interface Video {
-  id: string;
-  title: string;
-  description: string;
-  thumbnail: string;
-  videoUrl: string;
-  duration: string;
-  category: string;
-  year: number;
-  aiSummary: string;
-  tags: string[];
-  videoContent?: string;
-}
+const supabase = createClient(`https://${projectId}.supabase.co`, publicAnonKey);
+
+
 
 export const videoApi = {
   getAll: async (category?: string, limit = 100, offset = 0): Promise<{ videos: Video[]; total: number }> => {
-    const params = new URLSearchParams();
-    if (category && category !== 'All') params.append('category', category);
-    params.append('limit', limit.toString());
-    params.append('offset', offset.toString());
-
-    const response = await fetch(`${API_BASE}/videos?${params}`, {
-      headers: getPublicHeaders(),
-    });
-
-    if (!response.ok) {
-      const errorText = await response.text();
-      throw new Error(`Failed to fetch videos: ${response.status} - ${errorText}`);
+    let query = supabase.from('videos').select('*', { count: 'exact' });
+    if (category && category !== 'All') {
+      query = query.eq('genre', category);
     }
-
-    return response.json();
+    const { data, error, count } = await query.range(offset, offset + limit - 1);
+    if (error) throw error;
+    return { videos: (data || []) as Video[], total: count || 0 };
   },
 
   search: async (query: string): Promise<{ videos: Video[]; total: number }> => {
-    const params = new URLSearchParams({ q: query });
-    const response = await fetch(`${API_BASE}/videos/search?${params}`, {
-      headers: getPublicHeaders(),
-    });
-    if (!response.ok) throw new Error('Failed to search videos');
-    return response.json();
+    const { data, error, count } = await supabase
+      .from('videos')
+      .select('*', { count: 'exact' })
+      .or(`title.ilike.%${query}%,description.ilike.%${query}%`);
+    if (error) throw error;
+    return { videos: (data || []) as Video[], total: count || 0 };
   },
 
   getById: async (id: string): Promise<Video> => {
-    const response = await fetch(`${API_BASE}/videos/${id}`, {
-      headers: getPublicHeaders(),
-    });
-    if (!response.ok) throw new Error('Failed to fetch video');
-    const data = await response.json();
-    return data.video;
+    const { data, error } = await supabase
+      .from('videos')
+      .select('*')
+      .eq('id', id)
+      .single();
+    if (error) throw error;
+    return data as Video;
   },
 };
 
@@ -168,7 +153,7 @@ export const recommendationApi = {
       if (!response.ok) return [];
 
       const data = await response.json();
-      return data.recommendations || [];
+      return (data.recommendations || []) as Video[];
     } catch {
       return [];
     }
@@ -187,5 +172,32 @@ export const recommendationApi = {
     } catch {
       return [];
     }
+  },
+};
+
+export const dbApi = {
+  getVideos: async (): Promise<Video[]> => {
+    const { data, error } = await supabase
+      .from('videos')
+      .select('*');
+    if (error) throw error;
+    return data || [];
+  },
+
+  getPlaylists: async (): Promise<playlists[]> => {
+    const { data, error } = await supabase
+      .from('playlists')
+      .select('*');
+    if (error) throw error;
+    return data || [];
+  },
+
+  getWatchHistory: async (profileId: string): Promise<watch_history[]> => {
+    const { data, error } = await supabase
+      .from('watch_history')
+      .select('*')
+      .eq('profile_id', profileId);
+    if (error) throw error;
+    return data || [];
   },
 };

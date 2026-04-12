@@ -7,11 +7,12 @@ import { useAuth } from "../contexts/AuthContext";
 import { Sparkles, TrendingUp } from "lucide-react";
 import { RecommendationTutorial } from "../components/RecommendationTutorial";
 import { useState, useEffect } from "react";
-import { videoApi, Video } from "../lib/api";
+import { videoApi } from "../lib/api";
+import { videos as Video } from "../lib/table-definitions";
 import { PageErrorBoundary } from "../components/PageErrorBoundary";
 import { toast } from "sonner";
 
-const CATEGORIES = [
+const GENRES = [
   "Nature & Wildlife",
   "Science & Space",
   "Technology",
@@ -45,12 +46,12 @@ function BrowseContent() {
     fetchVideos();
   }, []);
 
-  // Group videos by category
-  const videosByCategory: Record<string, Video[]> = {};
-  for (const category of CATEGORIES) {
-    const catVideos = videos.filter(v => v.category === category);
-    if (catVideos.length > 0) {
-      videosByCategory[category] = catVideos;
+  // Group videos by genre
+  const videosByGenre: Record<string, Video[]> = {};
+  for (const genre of GENRES) {
+    const genreVideos = videos.filter(v => v.genre === genre);
+    if (genreVideos.length > 0) {
+      videosByGenre[genre] = genreVideos;
     }
   }
 
@@ -108,16 +109,16 @@ function BrowseContent() {
         {/* Trending Now */}
         <VideoRow title="Trending Now" videos={videos.slice(0, 20)} />
 
-        {/* Category Rows */}
-        {CATEGORIES.map((category) => {
-          const categoryVideos = videosByCategory[category];
-          if (!categoryVideos || categoryVideos.length === 0) return null;
+        {/* Genre Rows */}
+        {GENRES.map((genre) => {
+          const genreVideos = videosByGenre[genre];
+          if (!genreVideos || genreVideos.length === 0) return null;
           
           return (
             <VideoRow
-              key={category}
-              title={category}
-              videos={categoryVideos}
+              key={genre}
+              title={genre}
+              videos={genreVideos}
             />
           );
         })}

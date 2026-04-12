@@ -24,7 +24,7 @@ export function VideoCard({ video, index }: VideoCardProps) {
       onClick={() => navigate(`/watch/${video.id}`)}
     >
       <img
-        src={video.thumbnail}
+        src={video.thumbnail || 'https://via.placeholder.com/400x225?text=Video'}
         alt={video.title}
         className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105"
         loading="lazy"
@@ -40,7 +40,7 @@ export function VideoCard({ video, index }: VideoCardProps) {
         >
           <div className="flex items-center gap-2 mb-2">
             <span className="px-2 py-0.5 bg-red-600 text-white text-xs font-semibold rounded">
-              {video.category}
+              {video.genre}
             </span>
             <span className="text-xs text-gray-300">{video.duration}</span>
           </div>
