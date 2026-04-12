@@ -1,6 +1,7 @@
 import { useParams, useNavigate } from "react-router";
 import { Header } from "../components/Header";
 import { VideoCard } from "../components/VideoCard";
+import { VideoPlayer } from "../components/VideoPlayer";
 import { motion } from "motion/react";
 import { useState, useEffect, useRef } from "react";
 import { useAuth } from "../contexts/AuthContext";
@@ -289,13 +290,18 @@ function WatchContent() {
             {/* 4. The Video Player */}
             <div className="aspect-video w-full bg-black rounded-3xl overflow-hidden border border-gray-800 shadow-2xl relative group">
               {!videoError && (
-                <video 
+                <VideoPlayer 
                   ref={videoRef}
+                  src={video.video_file}
                   key={`${video.id}-${retryCount}`}
-                  controls 
-                  playsInline 
-                  preload="auto"
-                  className="w-full h-full object-contain"
+                  
+                  // Temporary Props for testing
+                  isPlaying={false}
+                  progress={45}
+                  currentTimeDisplay="1:30"
+                  durationDisplay="3:20"
+                  
+
                   onError={(e) => {
                     const videoEl = e.currentTarget;
                     console.error('Video playback error:', {
@@ -305,44 +311,20 @@ function WatchContent() {
                       src: video.video_file
                     });
                     
-                    // Provide more specific error messages
                     let errorMsg = 'Video failed to load.';
                     if (videoEl.error) {
                       switch (videoEl.error.code) {
-                        case MediaError.MEDIA_ERR_ABORTED:
-                          errorMsg = 'Video playback was aborted.';
-                          break;
-                        case MediaError.MEDIA_ERR_NETWORK:
-                          errorMsg = 'Network error while loading video.';
-                          break;
-                        case MediaError.MEDIA_ERR_DECODE:
-                          errorMsg = 'Video format not supported by your browser.';
-                          break;
-                        case MediaError.MEDIA_ERR_SRC_NOT_SUPPORTED:
-                          errorMsg = 'Video source not found or not supported.';
-                          break;
+                        case MediaError.MEDIA_ERR_ABORTED: errorMsg = 'Video playback was aborted.'; break;
+                        case MediaError.MEDIA_ERR_NETWORK: errorMsg = 'Network error while loading video.'; break;
+                        case MediaError.MEDIA_ERR_DECODE: errorMsg = 'Video format not supported by your browser.'; break;
+                        case MediaError.MEDIA_ERR_SRC_NOT_SUPPORTED: errorMsg = 'Video source not found or not supported.'; break;
                       }
                     }
                     
                     setVideoError(errorMsg);
-                    toast.error('Video playback error', {
-                      description: errorMsg
-                    });
+                    toast.error('Video playback error', { description: errorMsg });
                   }}
-                  onLoadedMetadata={() => {
-                    console.log('Video metadata loaded successfully');
-                  }}
-                  onLoadedData={() => {
-                    console.log('Video data loaded successfully');
-                    setVideoError(null);
-                  }}
-                  onCanPlay={() => {
-                    console.log('Video can play');
-                  }}
-                >
-                  <source src={video.video_file} type="video/mp4" />
-                  Your browser does not support the video tag.
-                </video>
+                />
               )}
               
               {/* Video Error Overlay */}
