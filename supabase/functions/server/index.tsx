@@ -22,6 +22,45 @@ const getSupabaseAnonClient = () => {
   );
 };
 
+const sanitizeReturnOrigin = (value: string | undefined): string => {
+  if (!value || typeof value !== 'string') {
+    return '';
+  }
+
+  try {
+    const parsed = new URL(value);
+    if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') {
+      return '';
+    }
+
+    return parsed.origin;
+  } catch {
+    return '';
+  }
+};
+
+const getDefaultAppOrigin = (): string => {
+  const configuredOrigin = sanitizeReturnOrigin(
+    Deno.env.get('APP_URL') || Deno.env.get('FRONTEND_URL') || Deno.env.get('SITE_URL') || '',
+  );
+
+  return configuredOrigin || 'http://localhost:5173';
+};
+
+const buildLoginRedirectUrl = (
+  returnOrigin: string,
+  params: Record<string, string>,
+): string => {
+  const resolvedOrigin = returnOrigin || getDefaultAppOrigin();
+  const redirectUrl = new URL('/login', resolvedOrigin);
+
+  Object.entries(params).forEach(([key, value]) => {
+    redirectUrl.searchParams.set(key, value);
+  });
+
+  return redirectUrl.toString();
+};
+
 // Enable logger
 app.use('*', logger(console.log));
 
@@ -44,7 +83,10 @@ app.get("/make-server-e24386a0/health", (c) => {
     env_check: {
       GOOGLE_CLIENT_ID: Deno.env.get('GOOGLE_CLIENT_ID') ? '✅ SET' : '❌ MISSING',
       GOOGLE_CLIENT_SECRET: Deno.env.get('GOOGLE_CLIENT_SECRET') ? '✅ SET' : '❌ MISSING',
-      OPENAI_API_KEY: Deno.env.get('OPENAI_API_KEY') ? '✅ SET' : '❌ MISSING'
+      OPENAI_API_KEY: Deno.env.get('OPENAI_API_KEY') ? '✅ SET' : '❌ MISSING',
+      SUPABASE_URL: Deno.env.get('SUPABASE_URL') ? '✅ SET' : '❌ MISSING',
+      SUPABASE_ANON_KEY: Deno.env.get('SUPABASE_ANON_KEY') ? '✅ SET' : '❌ MISSING',
+      SUPABASE_SERVICE_ROLE_KEY: Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ? '✅ SET' : '❌ MISSING'
     }
   });
 });
@@ -66,19 +108,53 @@ app.post("/make-server-e24386a0/reset-videos", async (c) => {
 // Sign up with email/password
 app.post("/make-server-e24386a0/auth/signup", async (c) => {
   try {
-    const { email, password, name } = await c.req.json();
+    const { email, password, name, returnOrigin } = await c.req.json();
     
-    if (!email || !password || !name) {
-      return c.json({ error: "Email, password, and name are required" }, 400);
+    if (!email || !password) {
+      return c.json({ error: "Email and password are required" }, 400);
     }
 
-    const result = await auth.signUp(email, password, name);
+    const safeReturnOrigin = sanitizeReturnOrigin(returnOrigin);
+    const result = await auth.signUp(email, password, name, safeReturnOrigin);
     console.log(`✅ User registered: ${email}`);
     
-    return c.json(result);
+    return c.json(result, 201);
   } catch (error: any) {
     console.log(`❌ Sign up error: ${error.message}`);
     return c.json({ error: error.message || "Sign up failed" }, 400);
+  }
+});
+
+app.post("/make-server-e24386a0/auth/resend-verification", async (c) => {
+  try {
+    const { email, returnOrigin } = await c.req.json();
+
+    if (!email) {
+      return c.json({ error: 'Email is required' }, 400);
+    }
+
+    const safeReturnOrigin = sanitizeReturnOrigin(returnOrigin);
+    const result = await auth.resendVerificationEmail(email, safeReturnOrigin);
+    return c.json(result);
+  } catch (error: any) {
+    console.log(`❌ Resend verification error: ${error.message}`);
+    return c.json({ error: error.message || 'Failed to resend verification email' }, 400);
+  }
+});
+
+app.post('/make-server-e24386a0/auth/verification-status', async (c) => {
+  try {
+    const { email } = await c.req.json();
+
+    if (!email) {
+      return c.json({ error: 'Email is required' }, 400);
+    }
+
+    const status = await auth.getVerificationStatus(email);
+    return c.json(status);
+  } catch (error: any) {
+    console.log(`❌ Verification status error: ${error.message}`);
+    return c.json({ error: error.message || 'Failed to get verification status' }, 400);
   }
 });
 
@@ -101,11 +177,46 @@ app.post("/make-server-e24386a0/auth/signin", async (c) => {
   }
 });
 
+app.get('/make-server-e24386a0/auth/verify-email', async (c) => {
+  const token = c.req.query('token') || '';
+  const safeReturnOrigin = sanitizeReturnOrigin(c.req.query('returnOrigin') || '');
+
+  if (!token) {
+    const missingTokenRedirect = buildLoginRedirectUrl(safeReturnOrigin, {
+      verified: 'failed',
+      reason: 'missing_token',
+    });
+    return c.redirect(missingTokenRedirect);
+  }
+
+  try {
+    const user = await auth.verifyEmailToken(token);
+    const successRedirect = buildLoginRedirectUrl(safeReturnOrigin, {
+      verified: 'success',
+      email: user.email,
+    });
+
+    return c.redirect(successRedirect);
+  } catch (error: any) {
+    console.log(`❌ Email verification error: ${error.message}`);
+    const reason = String(error?.message || '').toLowerCase().includes('expired')
+      ? 'expired'
+      : 'invalid';
+
+    const failureRedirect = buildLoginRedirectUrl(safeReturnOrigin, {
+      verified: 'failed',
+      reason,
+    });
+
+    return c.redirect(failureRedirect);
+  }
+});
+
 // Google OAuth - Get authorization URL
 app.post("/make-server-e24386a0/auth/google", async (c) => {
   try {
     const body = await c.req.json().catch(() => ({}));
-    const returnOrigin = body.returnOrigin || '';
+    const returnOrigin = sanitizeReturnOrigin(body.returnOrigin || '');
     const googleClientId = Deno.env.get('GOOGLE_CLIENT_ID');
     const googleClientSecret = Deno.env.get('GOOGLE_CLIENT_SECRET');
     const redirectUri = Deno.env.get('GOOGLE_REDIRECT_URI') || `${Deno.env.get('SUPABASE_URL')}/functions/v1/make-server-e24386a0/auth/google/callback`;
@@ -153,19 +264,19 @@ app.get("/make-server-e24386a0/auth/google/callback", async (c) => {
 
     if (error) {
       console.log(`❌ Google OAuth error: ${error}`);
-      return c.redirect(`/login?error=${encodeURIComponent(error)}`);
+      return c.redirect(buildLoginRedirectUrl('', { error }));
     }
 
     if (!code || !state) {
-      return c.redirect('/login?error=missing_code');
+      return c.redirect(buildLoginRedirectUrl('', { error: 'missing_code' }));
     }
 
     // Verify state and get returnOrigin
     const storedState = await kv.get(`oauth_state:${state}`);
     if (!storedState) {
-      return c.redirect('/login?error=invalid_state');
+      return c.redirect(buildLoginRedirectUrl('', { error: 'invalid_state' }));
     }
-    const returnOrigin = storedState.returnOrigin || '';
+    const returnOrigin = sanitizeReturnOrigin(storedState.returnOrigin || '');
     await kv.del(`oauth_state:${state}`);
 
     // Exchange code for tokens
@@ -191,8 +302,7 @@ app.get("/make-server-e24386a0/auth/google/callback", async (c) => {
 
     if (!tokenResponse.ok) {
       console.log(`❌ Token exchange failed (${tokenResponse.status}): ${JSON.stringify(tokens)}`);
-      const errorRedirect = returnOrigin ? `${returnOrigin}/login?error=token_failed` : `/login?error=token_failed`;
-      return c.redirect(errorRedirect);
+      return c.redirect(buildLoginRedirectUrl(returnOrigin, { error: 'token_failed' }));
     }
 
     // Get user info from Google
@@ -206,64 +316,16 @@ app.get("/make-server-e24386a0/auth/google/callback", async (c) => {
     const result = await auth.getOrCreateGoogleUser(googleUser);
     
     console.log(`✅ Google OAuth successful: ${googleUser.email}`);
-    console.log(`🔗 Redirecting to: ${returnOrigin || '(relative)'}/browse`);
+    const loginRedirect = buildLoginRedirectUrl(returnOrigin, {
+      success: 'true',
+      token: result.session.access_token,
+    });
 
-    // Redirect to app with token - use the actual app origin
-    const browseUrl = returnOrigin ? `${returnOrigin}/browse` : '/browse';
-    const htmlResponse = `
-      <!DOCTYPE html>
-      <html>
-        <head>
-          <title>Redirecting...</title>
-          <style>
-            body { 
-              font-family: system-ui; 
-              display: flex; 
-              align-items: center; 
-              justify-content: center; 
-              height: 100vh; 
-              margin: 0; 
-              background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-              color: white;
-            }
-            .loader { 
-              text-align: center; 
-            }
-            .spinner {
-              border: 4px solid rgba(255,255,255,0.3);
-              border-radius: 50%;
-              border-top: 4px solid white;
-              width: 40px;
-              height: 40px;
-              animation: spin 1s linear infinite;
-              margin: 0 auto 20px;
-            }
-            @keyframes spin {
-              0% { transform: rotate(0deg); }
-              100% { transform: rotate(360deg); }
-            }
-          </style>
-        </head>
-        <body>
-          <div class="loader">
-            <div class="spinner"></div>
-            <h2>Signing you in...</h2>
-            <p>Redirecting to Loopy</p>
-          </div>
-          <script>
-            localStorage.setItem('loopy_access_token', '${result.session.access_token}');
-            setTimeout(() => {
-              window.location.href = '${browseUrl}';
-            }, 500);
-          </script>
-        </body>
-      </html>
-    `;
-
-    return c.html(htmlResponse);
+    console.log(`🔗 Redirecting to: ${loginRedirect}`);
+    return c.redirect(loginRedirect);
   } catch (error: any) {
     console.log(`❌ Google OAuth callback error: ${error.message}`);
-    return c.redirect('/login?error=auth_failed');
+    return c.redirect(buildLoginRedirectUrl('', { error: 'auth_failed' }));
   }
 });
 

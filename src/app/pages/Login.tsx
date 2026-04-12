@@ -7,16 +7,28 @@ import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import { PageErrorBoundary } from "../components/PageErrorBoundary";
 import { GoogleOAuthSetupGuide } from "../components/GoogleOAuthSetupGuide";
+import { getSignUpValidationError } from "../lib/auth-validation";
+
+interface VerificationCheckResult {
+  email: string;
+  exists: boolean;
+  provider?: 'email' | 'google';
+  emailVerified?: boolean;
+}
 
 function LoginContent() {
   const navigate = useNavigate();
-  const { signInWithGoogle, signInWithEmail, signUp, user, isLoading } = useAuth();
+  const { signInWithGoogle, signInWithEmail, signUp, resendVerificationEmail, getVerificationStatus, user, isLoading } = useAuth();
   const [isSignUp, setIsSignUp] = useState(false);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [name, setName] = useState("");
   const [googleLoading, setGoogleLoading] = useState(false);
   const [googleOAuthUrl, setGoogleOAuthUrl] = useState<string | null>(null);
+  const [verificationStatusLoading, setVerificationStatusLoading] = useState(false);
+  const [verificationStatusMessage, setVerificationStatusMessage] = useState<string | null>(null);
+  const [verificationStatusType, setVerificationStatusType] = useState<'neutral' | 'success' | 'warning' | 'error'>('neutral');
+  const [verificationCheck, setVerificationCheck] = useState<VerificationCheckResult | null>(null);
 
   // Redirect if already logged in
   useEffect(() => {
@@ -31,6 +43,38 @@ function LoginContent() {
     const token = urlParams.get('token');
     const success = urlParams.get('success');
     const error = urlParams.get('error');
+    const verified = urlParams.get('verified');
+    const verificationReason = urlParams.get('reason');
+    const verifiedEmail = urlParams.get('email');
+
+    if (verified === 'success') {
+      toast.success('Email verified successfully!', {
+        description: verifiedEmail
+          ? `${verifiedEmail} is now verified. You can sign in and unlock personalized features.`
+          : 'Your account is now verified. You can sign in and unlock personalized features.',
+        duration: 6000,
+      });
+
+      if (verifiedEmail) {
+        setEmail(verifiedEmail);
+      }
+
+      window.history.replaceState({}, document.title, '/login');
+      return;
+    }
+
+    if (verified === 'failed') {
+      const description = verificationReason === 'expired'
+        ? 'That verification link expired. Please request a new one from the sign-in screen.'
+        : 'The verification link is invalid or already used. Please request a new link.';
+
+      toast.error('Email verification failed', {
+        description,
+        duration: 7000,
+      });
+      window.history.replaceState({}, document.title, '/login');
+      return;
+    }
 
     if (token && success) {
       // Store the token
@@ -76,26 +120,95 @@ function LoginContent() {
     }
   };
 
-  const handleEmailSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    
-    if (!email || !password || (isSignUp && !name)) {
-      toast.error("Please fill in all fields");
+  const handleCheckVerificationStatus = async () => {
+    const normalizedEmail = email.trim();
+
+    if (!normalizedEmail) {
+      toast.error('Enter your email first to check verification status.');
       return;
     }
 
     try {
-      if (isSignUp) {
-        await signUp(email, password, name);
-        toast.success("Account created successfully!", {
-          description: "You can now sign in with your credentials"
-        });
-        // Switch to sign-in mode after successful signup
-        setIsSignUp(false);
-        // Keep email filled in
-        setPassword('');
+      setVerificationStatusLoading(true);
+      const status = await getVerificationStatus(normalizedEmail) as VerificationCheckResult;
+      setVerificationCheck(status);
+
+      if (!status.exists) {
+        setVerificationStatusType('error');
+        setVerificationStatusMessage(`No account found for ${normalizedEmail}. Create an account first.`);
+        return;
+      }
+
+      if (status.provider === 'google') {
+        setVerificationStatusType('success');
+        setVerificationStatusMessage('This account uses Google Sign-In and is already verified.');
+        return;
+      }
+
+      if (status.emailVerified) {
+        setVerificationStatusType('success');
+        setVerificationStatusMessage(`Email verified for ${status.email}. You can sign in now.`);
       } else {
-        await signInWithEmail(email, password);
+        setVerificationStatusType('warning');
+        setVerificationStatusMessage(`Email not verified for ${status.email}. Use the button below to resend the verification link.`);
+      }
+    } catch (error: any) {
+      setVerificationCheck(null);
+      setVerificationStatusType('error');
+      setVerificationStatusMessage(error?.message || 'Could not check verification status right now.');
+    } finally {
+      setVerificationStatusLoading(false);
+    }
+  };
+
+  const handleResendVerificationFromCard = async () => {
+    const normalizedEmail = email.trim();
+
+    if (!normalizedEmail) {
+      toast.error('Enter your email first to resend the verification link.');
+      return;
+    }
+
+    try {
+      await resendVerificationEmail(normalizedEmail);
+      setVerificationStatusType('success');
+      setVerificationStatusMessage('A new verification link has been sent. Check your inbox and then click Check status again.');
+      toast.success('Verification link resent successfully.');
+    } catch (error: any) {
+      setVerificationStatusType('error');
+      setVerificationStatusMessage(error?.message || 'Could not resend verification link.');
+    }
+  };
+
+  const handleEmailSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    
+    if (!email || !password) {
+      toast.error("Please fill in all fields");
+      return;
+    }
+
+    const normalizedEmail = email.trim();
+
+    if (isSignUp) {
+      const validationError = getSignUpValidationError(normalizedEmail, password);
+      if (validationError) {
+        toast.error(validationError);
+        return;
+      }
+    }
+
+    try {
+      if (isSignUp) {
+        const result = await signUp(normalizedEmail, password, name);
+        toast.success("Account created successfully!", {
+          description: result.message || "Check your email for the verification link before signing in.",
+          duration: 7000,
+        });
+
+        navigate(result.redirectTo || '/');
+      } else {
+        await signInWithEmail(normalizedEmail, password);
         toast.success("Signed in successfully!");
         navigate("/browse");
       }
@@ -109,11 +222,44 @@ function LoginContent() {
           duration: 5000
         });
         setIsSignUp(false); // Switch to sign-in mode
+      } else if (error.message?.includes('already in use')) {
+        toast.error("Account already exists", {
+          description: "This email is already registered. Try signing in instead.",
+          duration: 5000,
+        });
+        setIsSignUp(false);
+      } else if (error.message?.includes('valid email address')) {
+        toast.error("Invalid email", {
+          description: "Please enter a valid email address.",
+          duration: 5000,
+        });
+      } else if (error.message?.includes('special character') || error.message?.includes('at least 8 characters')) {
+        toast.error("Weak password", {
+          description: error.message,
+          duration: 6000,
+        });
       } else if (error.message?.includes('Invalid login')) {
         toast.error("Invalid credentials", {
           description: "Email or password is incorrect. Make sure your account exists and try again.",
           duration: 5000
         });
+      } else if (error.message?.includes('Invalid email or password')) {
+        toast.error("Invalid credentials", {
+          description: "Email or password is incorrect. Please try again.",
+          duration: 5000,
+        });
+      } else if (error.message?.includes('Email not verified')) {
+        toast.error("Email verification required", {
+          description: "Please verify your email before signing in. Sending a new verification link now.",
+          duration: 7000,
+        });
+
+        try {
+          await resendVerificationEmail(normalizedEmail);
+          toast.success('A fresh verification email has been sent.');
+        } catch (resendError: any) {
+          toast.error(resendError?.message || 'Could not resend verification email.');
+        }
       } else if (error.message?.includes('rate limit exceeded')) {
         toast.error("Too many attempts", {
           description: "Please wait a few minutes before trying again, or use Google Sign-In instead.",
@@ -123,6 +269,11 @@ function LoginContent() {
         toast.error("Email configuration issue", {
           description: "Please try using Google Sign-In, or check your Supabase email settings.",
           duration: 7000
+        });
+      } else if (error.message?.includes('Supabase email signup is disabled')) {
+        toast.error("Supabase email provider is disabled", {
+          description: "Enable the Email provider in Supabase Authentication settings.",
+          duration: 8000,
         });
       } else if (error.message?.includes('Email confirmation')) {
         toast.error("Email confirmation required", {
@@ -237,7 +388,7 @@ function LoginContent() {
                   <UserIcon className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
                   <input
                     type="text"
-                    placeholder="Full Name"
+                    placeholder="Full Name (optional)"
                     value={name}
                     onChange={(e) => setName(e.target.value)}
                     className="w-full pl-12 pr-4 py-3 bg-gray-800/50 border border-gray-600 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:border-purple-500 transition-colors"
@@ -267,6 +418,12 @@ function LoginContent() {
                 />
               </div>
 
+               {isSignUp && (
+                 <p className="text-xs text-gray-400 px-1">
+                   Use 8+ characters and at least one special character.
+                 </p>
+               )}
+
               <button
                 type="submit"
                 disabled={isLoading}
@@ -275,6 +432,58 @@ function LoginContent() {
                 {isLoading ? "Processing..." : isSignUp ? "Create Account" : "Sign In"}
               </button>
             </motion.form>
+
+            {!isSignUp && (
+              <motion.div
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.72 }}
+                className="mb-5 p-4 rounded-lg border border-gray-700 bg-gray-900/40"
+              >
+                <div className="flex items-center justify-between gap-3">
+                  <div>
+                    <p className="text-sm font-semibold text-gray-200">Check verification status</p>
+                    <p className="text-xs text-gray-400">Use your sign-in email to confirm account verification.</p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={handleCheckVerificationStatus}
+                    disabled={verificationStatusLoading}
+                    className="px-3 py-2 text-xs font-semibold rounded-md bg-gray-800 hover:bg-gray-700 text-white transition-colors disabled:opacity-60"
+                  >
+                    {verificationStatusLoading ? 'Checking...' : 'Check status'}
+                  </button>
+                </div>
+
+                {verificationStatusMessage && (
+                  <p
+                    className={`text-xs mt-3 ${
+                      verificationStatusType === 'success'
+                        ? 'text-emerald-300'
+                        : verificationStatusType === 'warning'
+                          ? 'text-amber-300'
+                          : verificationStatusType === 'error'
+                            ? 'text-rose-300'
+                            : 'text-gray-300'
+                    }`}
+                  >
+                    {verificationStatusMessage}
+                  </p>
+                )}
+
+                {verificationCheck?.exists &&
+                  verificationCheck.provider === 'email' &&
+                  verificationCheck.emailVerified === false && (
+                    <button
+                      type="button"
+                      onClick={handleResendVerificationFromCard}
+                      className="mt-3 px-3 py-2 text-xs font-semibold rounded-md bg-purple-700 hover:bg-purple-600 text-white transition-colors"
+                    >
+                      Resend verification link
+                    </button>
+                  )}
+              </motion.div>
+            )}
 
             {/* Divider */}
             <motion.div

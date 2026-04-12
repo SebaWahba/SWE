@@ -18,6 +18,14 @@ const getPublicHeaders = () => ({
   'Authorization': `Bearer ${publicAnonKey}`,
 });
 
+const getReturnOrigin = () => {
+  if (typeof window === 'undefined') {
+    return '';
+  }
+
+  return window.location.origin;
+};
+
 const supabase = createClient(`https://${projectId}.supabase.co`, publicAnonKey);
 
 
@@ -54,15 +62,38 @@ export const videoApi = {
 };
 
 export const authApi = {
-  signUp: async (email: string, password: string, name: string) => {
+  signUp: async (email: string, password: string, name?: string) => {
     const response = await fetch(`${API_BASE}/auth/signup`, {
       method: 'POST',
       headers: getPublicHeaders(),
-      body: JSON.stringify({ email, password, name }),
+      body: JSON.stringify({ email, password, name, returnOrigin: getReturnOrigin() }),
     });
     const data = await response.json();
     if (!response.ok) throw new Error(data.error || 'Sign up failed');
-    localStorage.setItem('loopy_access_token', data.session.access_token);
+    return data;
+  },
+
+  resendVerificationEmail: async (email: string) => {
+    const response = await fetch(`${API_BASE}/auth/resend-verification`, {
+      method: 'POST',
+      headers: getPublicHeaders(),
+      body: JSON.stringify({ email, returnOrigin: getReturnOrigin() }),
+    });
+
+    const data = await response.json();
+    if (!response.ok) throw new Error(data.error || 'Failed to resend verification email');
+    return data;
+  },
+
+  getVerificationStatus: async (email: string) => {
+    const response = await fetch(`${API_BASE}/auth/verification-status`, {
+      method: 'POST',
+      headers: getPublicHeaders(),
+      body: JSON.stringify({ email }),
+    });
+
+    const data = await response.json();
+    if (!response.ok) throw new Error(data.error || 'Failed to get verification status');
     return data;
   },
 
@@ -82,7 +113,7 @@ export const authApi = {
     const response = await fetch(`${API_BASE}/auth/google`, {
       method: 'POST',
       headers: getPublicHeaders(),
-      body: JSON.stringify({ returnOrigin: window.location.origin }),
+      body: JSON.stringify({ returnOrigin: getReturnOrigin() }),
     });
     const data = await response.json();
     if (!response.ok) throw new Error(data.error || 'Google sign-in failed');
