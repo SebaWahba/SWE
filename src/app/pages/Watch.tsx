@@ -1,6 +1,6 @@
 import { useParams, useNavigate } from "react-router";
 import { useState, useEffect, useRef } from "react";
-import { videoApi, setVideo } from "../lib/api"; // Keep his Video import
+import { videoApi } from "../lib/api"; // Keep his Video import
 import { Header } from "../components/Header";
 import { toast } from "sonner";
 import { motion, AnimatePresence } from "motion/react";
