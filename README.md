@@ -151,19 +151,6 @@ Netflix-style personalization based on:
 ### Running Locally
 The app is deployed and ready to use. No local setup needed!
 
-### Edge Function
-- **Name**: `make-server-e24386a0`
-- **Location**: `/supabase/functions/server/index.tsx`
-- **Endpoints**:
-  - GET `/health` - Health check
-  - GET `/videos` - List videos
-  - GET `/videos/search` - Search videos
-  - GET `/videos/:id` - Get single video
-  - POST `/signup` - Create account
-  - POST `/watch` - Track watch history
-  - GET `/recommendations` - Get personalized recommendations
-  - GET `/watch-history` - Get user watch history
-
 ### Database
 Uses Supabase KV store:
 - `videos_database` - All videos (200+)
@@ -188,7 +175,6 @@ Press **F12** to see:
 
 | Issue | Cause | Fix |
 |-------|-------|-----|
-| "Could not load make" | Edge function not deployed | Deploy in Supabase Dashboard |
 | Videos not loading | Server down | Check status indicator, redeploy |
 | Google Sign-In fails | Not configured | See TROUBLESHOOTING_GUIDE.md |
 | No recommendations | Not logged in / No watch history | Sign in and watch videos |
@@ -217,9 +203,6 @@ Press **F12** to see:
 │   │   └── RecommendationContext.tsx
 │   └── lib/
 │       └── api.ts             # API client
-├── supabase/functions/server/
-│   ├── index.tsx              # Edge function
-│   └── kv_store.tsx           # Database utilities
 ├── utils/supabase/
 │   └── info.tsx               # Supabase config
 └── docs/
@@ -236,7 +219,6 @@ The app is already deployed and running on Supabase!
 **Your URLs:**
 - App: [Your deployment URL]
 - Supabase: https://supabase.com/dashboard/project/ydywwijhmjvtkgxkugnx
-- API: https://ydywwijhmjvtkgxkugnx.supabase.co/functions/v1/make-server-e24386a0
 
 ## 📈 Future Enhancements
 
