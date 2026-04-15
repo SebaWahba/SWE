@@ -1,4 +1,5 @@
-import { projectId, publicAnonKey } from '/utils/supabase/info';
+const projectId = 'ydywwijhmjvtkgxkugnx';
+const publicAnonKey = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InlkeXd3aWpobWp2dGtneGt1Z254Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzEwNjYyMDUsImV4cCI6MjA4NjY0MjIwNX0.OpIif2nfVN38NGklmlaY6YiOk3dYQ0VZMEThAFOQeGk";
 import { videos as Video, playlists, watch_history } from './table-definitions';
 import { createClient } from '@supabase/supabase-js';
 
@@ -22,13 +23,10 @@ const getReturnOrigin = () => {
   if (typeof window === 'undefined') {
     return '';
   }
-
   return window.location.origin;
 };
 
 const supabase = createClient(`https://${projectId}.supabase.co`, publicAnonKey);
-
-
 
 export const videoApi = {
   getAll: async (category?: string, limit = 100, offset = 0): Promise<{ videos: Video[]; total: number }> => {
@@ -45,7 +43,7 @@ export const videoApi = {
     const { data, error, count } = await supabase
       .from('videos')
       .select('*', { count: 'exact' })
-      .or(`title.ilike.%${query}%,description.ilike.%${query}%`);
+      .or(`title.ilike.%${query}%,description.ilike.%${query}%,transcript.ilike.%${query}%`);
     if (error) throw error;
     return { videos: (data || []) as Video[], total: count || 0 };
   },
@@ -79,7 +77,6 @@ export const authApi = {
       headers: getPublicHeaders(),
       body: JSON.stringify({ email, returnOrigin: getReturnOrigin() }),
     });
-
     const data = await response.json();
     if (!response.ok) throw new Error(data.error || 'Failed to resend verification email');
     return data;
@@ -91,7 +88,6 @@ export const authApi = {
       headers: getPublicHeaders(),
       body: JSON.stringify({ email }),
     });
-
     const data = await response.json();
     if (!response.ok) throw new Error(data.error || 'Failed to get verification status');
     return data;
@@ -117,7 +113,11 @@ export const authApi = {
     });
     const data = await response.json();
     if (!response.ok) throw new Error(data.error || 'Google sign-in failed');
-    if (!data?.url) throw new Error('Failed to get Google sign-in URL');
+    
+    // Redirect logic to ensure the browser moves to the Google consent screen
+    if (data?.url) {
+      window.location.href = data.url;
+    }
     return data;
   },
 
