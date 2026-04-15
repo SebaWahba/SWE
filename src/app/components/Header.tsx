@@ -1,5 +1,5 @@
 import { Link, useLocation, useNavigate } from "react-router";
-import { Search, Sparkles, LogOut, User, History } from "lucide-react";
+import { Search, Sparkles, LogOut, User, History, Shield } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
 import { useState, useEffect, useRef } from "react";
 import { useAuth } from "../contexts/AuthContext";
@@ -160,6 +160,14 @@ export function Header() {
                           >
                             <History className="w-4 h-4" /> Watch History
                           </button>
+                          {user.isAdmin && (
+                            <button
+                              onClick={() => { navigate("/admin"); setShowUserMenu(false); }}
+                              className="w-full px-4 py-2.5 text-left text-sm text-purple-400 hover:bg-gray-800 flex items-center gap-2"
+                            >
+                              <Shield className="w-4 h-4" /> Admin Dashboard
+                            </button>
+                          )}
                           <button
                             onClick={() => { signOut(); setShowUserMenu(false); navigate("/"); }}
                             className="w-full px-4 py-2.5 text-left text-sm text-red-400 hover:bg-gray-800 flex items-center gap-2"

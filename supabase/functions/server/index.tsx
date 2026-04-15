@@ -554,6 +554,226 @@ app.get("/make-server-e24386a0/videos/:id", async (c) => {
   }
 });
 
+// ===== ADMIN ENDPOINTS =====
+
+const ALLOWED_VIDEO_TYPES = ['video/mp4', 'video/webm', 'video/quicktime', 'video/x-msvideo'];
+const MAX_VIDEO_SIZE = 5 * 1024 * 1024 * 1024; // 5GB
+const VIDEOS_BUCKET = 'videos';
+
+app.post("/make-server-e24386a0/admin/upload", async (c) => {
+  try {
+    const user = await auth.getUserFromAuth(c.req.header('Authorization'));
+
+    if (!user?.id) {
+      return c.json({ error: "Unauthorized" }, 401);
+    }
+
+    const isAdmin = user.isAdmin || await auth.isUserAdmin(user.id, user.email);
+    if (!isAdmin) {
+      return c.json({ error: "Forbidden: Admin access required" }, 403);
+    }
+
+    const formData = await c.req.formData();
+    const file = formData.get('video') as File | null;
+    const title = formData.get('title') as string | null;
+    const description = formData.get('description') as string | null;
+    const genre = formData.get('genre') as string | null;
+    const category = formData.get('category') as string | null;
+    const tagsRaw = formData.get('tags') as string | null;
+
+    if (!file) {
+      return c.json({ error: "No video file provided" }, 400);
+    }
+
+    if (!title) {
+      return c.json({ error: "Title is required" }, 400);
+    }
+
+    if (!ALLOWED_VIDEO_TYPES.includes(file.type)) {
+      return c.json({ error: `Invalid file type. Allowed: ${ALLOWED_VIDEO_TYPES.join(', ')}` }, 400);
+    }
+
+    if (file.size > MAX_VIDEO_SIZE) {
+      return c.json({ error: "File too large. Maximum size is 5GB" }, 400);
+    }
+
+    const supabase = getSupabaseClient();
+    const fileName = `${Date.now()}-${file.name.replace(/[^a-zA-Z0-9.-]/g, '_')}`;
+    const filePath = `videos/${fileName}`;
+
+    const arrayBuffer = await file.arrayBuffer();
+    let { data: uploadData, error: uploadError } = await supabase.storage
+      .from(VIDEOS_BUCKET)
+      .upload(filePath, arrayBuffer, {
+        contentType: file.type,
+        upsert: false,
+      });
+
+    if (uploadError && /bucket.*not found/i.test(uploadError.message || '')) {
+      console.log(`Storage bucket "${VIDEOS_BUCKET}" missing. Creating it now...`);
+      const { error: createBucketError } = await supabase.storage.createBucket(VIDEOS_BUCKET, {
+        public: true,
+        fileSizeLimit: MAX_VIDEO_SIZE,
+        allowedMimeTypes: ALLOWED_VIDEO_TYPES,
+      });
+
+      if (createBucketError && !/already exists/i.test(createBucketError.message || '')) {
+        console.log(`Bucket create error: ${createBucketError.message}`);
+        return c.json({ error: `Upload failed: ${createBucketError.message}` }, 500);
+      }
+
+      // Retry once after creating the bucket.
+      const retryResult = await supabase.storage
+        .from(VIDEOS_BUCKET)
+        .upload(filePath, arrayBuffer, {
+          contentType: file.type,
+          upsert: false,
+        });
+      uploadData = retryResult.data;
+      uploadError = retryResult.error;
+    }
+
+    if (uploadError) {
+      console.log(`Storage upload error: ${uploadError.message}`);
+      return c.json({ error: `Upload failed: ${uploadError.message}` }, 500);
+    }
+
+    const { data: urlData } = supabase.storage
+      .from(VIDEOS_BUCKET)
+      .getPublicUrl(filePath);
+
+    const videoId = crypto.randomUUID();
+    const now = new Date().toISOString();
+    const tags = tagsRaw ? tagsRaw.split(',').map(t => t.trim()).filter(Boolean) : [];
+
+    const { data: dbVideo, error: dbError } = await supabase
+      .from('videos')
+      .insert({
+        id: videoId,
+        title,
+        description: description || '',
+        genre: genre || null,
+        category: category || null,
+        video_file: urlData.publicUrl,
+        tags: tags,
+        releaseYear: String(new Date().getFullYear()),
+        uploaded_by: user.id,
+        created_at: now,
+        updated_at: now,
+      })
+      .select()
+      .single();
+
+    if (dbError) {
+      console.log(`Database insert error: ${dbError.message}`);
+      return c.json({ error: `Failed to save video record: ${dbError.message}` }, 500);
+    }
+
+    console.log(`✅ Video uploaded by admin ${user.email}: ${title} (${videoId})`);
+
+    return c.json({
+      success: true,
+      video: dbVideo,
+      publicUrl: urlData.publicUrl,
+    });
+  } catch (error: any) {
+    console.log(`Error uploading video: ${error.message}`);
+    return c.json({ error: error.message || "Upload failed" }, 500);
+  }
+});
+
+app.get("/make-server-e24386a0/admin/videos", async (c) => {
+  try {
+    const user = await auth.getUserFromAuth(c.req.header('Authorization'));
+
+    if (!user?.id) {
+      return c.json({ error: "Unauthorized" }, 401);
+    }
+
+    const isAdmin = user.isAdmin || await auth.isUserAdmin(user.id, user.email);
+    if (!isAdmin) {
+      return c.json({ error: "Forbidden: Admin access required" }, 403);
+    }
+
+    const supabase = getSupabaseClient();
+    const { data: videos, error } = await supabase
+      .from('videos')
+      .select('id, title, description, genre, category, video_file, tags, releaseYear, created_at')
+      .eq('uploaded_by', user.id)
+      .order('created_at', { ascending: false });
+
+    if (error) {
+      console.log(`Error fetching videos: ${error.message}`);
+      return c.json({ error: error.message || "Failed to fetch videos" }, 500);
+    }
+
+    return c.json({ videos: videos || [] });
+  } catch (error: any) {
+    console.log(`Error fetching admin videos: ${error.message}`);
+    return c.json({ error: error.message || "Failed to fetch videos" }, 500);
+  }
+});
+
+app.delete("/make-server-e24386a0/admin/videos/:id", async (c) => {
+  try {
+    const user = await auth.getUserFromAuth(c.req.header('Authorization'));
+
+    if (!user?.id) {
+      return c.json({ error: "Unauthorized" }, 401);
+    }
+
+    const isAdmin = user.isAdmin || await auth.isUserAdmin(user.id, user.email);
+    if (!isAdmin) {
+      return c.json({ error: "Forbidden: Admin access required" }, 403);
+    }
+
+    const videoId = c.req.param('id');
+    const supabase = getSupabaseClient();
+
+    const { data: video, error: fetchError } = await supabase
+      .from('videos')
+      .select('id, video_file, uploaded_by')
+      .eq('id', videoId)
+      .single();
+
+    if (fetchError || !video) {
+      return c.json({ error: "Video not found" }, 404);
+    }
+
+    if (video.uploaded_by !== user.id && !isAdmin) {
+      return c.json({ error: "You can only delete your own videos" }, 403);
+    }
+
+    if (video.video_file) {
+      try {
+        const filePath = video.video_file.split('/videos/')[1];
+        if (filePath) {
+          await supabase.storage.from('videos').remove([`videos/${filePath}`]);
+        }
+      } catch (e) {
+        console.log(`Failed to delete storage file: ${e}`);
+      }
+    }
+
+    const { error: deleteError } = await supabase
+      .from('videos')
+      .delete()
+      .eq('id', videoId);
+
+    if (deleteError) {
+      console.log(`Error deleting video: ${deleteError.message}`);
+      return c.json({ error: `Failed to delete video: ${deleteError.message}` }, 500);
+    }
+
+    console.log(`✅ Video deleted by admin ${user.email}: ${videoId}`);
+
+    return c.json({ success: true });
+  } catch (error: any) {
+    console.log(`Error deleting video: ${error.message}`);
+    return c.json({ error: error.message || "Failed to delete video" }, 500);
+  }
+});
+
 // ===== WATCH HISTORY & RECOMMENDATIONS =====
 
 // Track video watch

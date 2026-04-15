@@ -3,6 +3,8 @@ import { videos as Video, playlists, watch_history } from './table-definitions';
 import { createClient } from '@supabase/supabase-js';
 
 const API_BASE = `https://${projectId}.supabase.co/functions/v1/make-server-e24386a0`;
+const ALLOWED_VIDEO_TYPES = ['video/mp4', 'video/webm', 'video/quicktime', 'video/x-msvideo'];
+const MAX_VIDEO_SIZE = 5 * 1024 * 1024 * 1024; // 5GB
 
 const getAuthHeaders = () => {
   const token = localStorage.getItem('loopy_access_token');
@@ -27,8 +29,6 @@ const getReturnOrigin = () => {
 };
 
 const supabase = createClient(`https://${projectId}.supabase.co`, publicAnonKey);
-
-
 
 export const videoApi = {
   getAll: async (category?: string, limit = 100, offset = 0): Promise<{ videos: Video[]; total: number }> => {
@@ -230,5 +230,103 @@ export const dbApi = {
       .eq('profile_id', profileId);
     if (error) throw error;
     return data || [];
+  },
+};
+
+export const adminApi = {
+  uploadVideo: async (
+    file: File,
+    title: string,
+    description?: string,
+    genre?: string,
+    category?: string,
+    tags?: string,
+    onProgress?: (progress: number) => void
+  ): Promise<{ success: boolean; video?: any; publicUrl?: string; error?: string }> => {
+    if (!ALLOWED_VIDEO_TYPES.includes(file.type)) {
+      return { success: false, error: `Invalid file type. Allowed: ${ALLOWED_VIDEO_TYPES.join(', ')}` };
+    }
+
+    if (file.size > MAX_VIDEO_SIZE) {
+      return { success: false, error: 'File too large. Maximum size is 5GB' };
+    }
+
+    try {
+      const token = localStorage.getItem('loopy_access_token');
+      if (!token) return { success: false, error: 'Not authenticated' };
+
+      const formData = new FormData();
+      formData.append('video', file);
+      formData.append('title', title);
+      formData.append('description', description || '');
+      formData.append('genre', genre || '');
+      formData.append('category', category || '');
+      formData.append('tags', tags || '');
+
+      const result = await new Promise<{ success: boolean; video?: any; publicUrl?: string; error?: string }>((resolve) => {
+        const xhr = new XMLHttpRequest();
+
+        if (onProgress) {
+          xhr.upload.onprogress = (e) => {
+            if (e.lengthComputable) {
+              onProgress(Math.round((e.loaded / e.total) * 100));
+            }
+          };
+        }
+
+        xhr.onload = () => {
+          let data: any = {};
+          try {
+            data = JSON.parse(xhr.responseText || '{}');
+          } catch {
+            data = {};
+          }
+
+          if (xhr.status < 200 || xhr.status >= 300) {
+            resolve({ success: false, error: data?.error || `Upload failed: ${xhr.status}` });
+            return;
+          }
+
+          resolve({
+            success: Boolean(data?.success),
+            video: data?.video,
+            publicUrl: data?.publicUrl,
+            error: data?.error,
+          });
+        };
+
+        xhr.onerror = () => resolve({ success: false, error: 'Network error' });
+        xhr.open('POST', `${API_BASE}/admin/upload`);
+        xhr.setRequestHeader('Authorization', `Bearer ${token}`);
+        xhr.send(formData);
+      });
+
+      return result;
+    } catch (error) {
+      return { success: false, error: error instanceof Error ? error.message : 'Upload failed' };
+    }
+  },
+
+  getMyVideos: async (): Promise<{ videos: any[] }> => {
+    const headers = getAuthHeaders();
+    if (!headers) throw new Error('Not authenticated');
+
+    const response = await fetch(`${API_BASE}/admin/videos`, { headers });
+    const data = await response.json();
+    if (!response.ok) throw new Error(data.error || 'Failed to fetch videos');
+    return { videos: data.videos || [] };
+  },
+
+  deleteVideo: async (videoId: string): Promise<{ success: boolean; error?: string }> => {
+    const headers = getAuthHeaders();
+    if (!headers) return { success: false, error: 'Not authenticated' };
+
+    const response = await fetch(`${API_BASE}/admin/videos/${videoId}`, {
+      method: 'DELETE',
+      headers,
+    });
+    const data = await response.json();
+    if (!response.ok) return { success: false, error: data.error || 'Delete failed' };
+    return { success: true };
   },
 };

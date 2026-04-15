@@ -1,0 +1,141 @@
+-- WARNING: This schema is for context only and is not meant to be run.
+-- Table order and constraints may not be valid for execution.
+
+CREATE TABLE public.Playlist (
+  id bigint GENERATED ALWAYS AS IDENTITY NOT NULL,
+  Title text NOT NULL,
+  Videos ARRAY,
+  Owner uuid,
+  CONSTRAINT Playlist_pkey PRIMARY KEY (id)
+);
+
+CREATE TABLE public.audio_tracks (
+  id uuid NOT NULL DEFAULT uuid_generate_v4(),
+  video_id uuid NOT NULL,
+  language text NOT NULL,
+  track_index smallint NOT NULL,
+  CONSTRAINT audio_tracks_pkey PRIMARY KEY (id)
+);
+
+CREATE TABLE public.episodes (
+  id uuid NOT NULL DEFAULT uuid_generate_v4(),
+  series_id uuid NOT NULL,
+  video_id uuid NOT NULL,
+  season_number smallint NOT NULL CHECK (season_number > 0),
+  episode_number smallint NOT NULL CHECK (episode_number > 0),
+  CONSTRAINT episodes_pkey PRIMARY KEY (id),
+  CONSTRAINT episodes_series_id_fkey FOREIGN KEY (series_id) REFERENCES public.series(id)
+);
+
+CREATE TABLE public.kv_store_e24386a0 (
+  key text NOT NULL,
+  value jsonb NOT NULL,
+  CONSTRAINT kv_store_e24386a0_pkey PRIMARY KEY (key)
+);
+
+CREATE TABLE public.playlist_videos (
+  playlist_id uuid NOT NULL,
+  video_id uuid NOT NULL,
+  added_at timestamp with time zone NOT NULL DEFAULT now(),
+  position integer NOT NULL DEFAULT 0,
+  CONSTRAINT playlist_videos_pkey PRIMARY KEY (playlist_id, video_id),
+  CONSTRAINT playlist_videos_playlist_id_fkey FOREIGN KEY (playlist_id) REFERENCES public.playlists(id)
+);
+
+CREATE TABLE public.playlists (
+  id uuid NOT NULL DEFAULT uuid_generate_v4(),
+  profile_id uuid NOT NULL,
+  title text NOT NULL,
+  folder_order integer NOT NULL DEFAULT 0,
+  created_at timestamp with time zone NOT NULL DEFAULT now(),
+  CONSTRAINT playlists_pkey PRIMARY KEY (id),
+  CONSTRAINT playlists_profile_id_fkey FOREIGN KEY (profile_id) REFERENCES public.profiles(id)
+);
+
+CREATE TABLE public.profiles (
+  id uuid NOT NULL DEFAULT uuid_generate_v4(),
+  account_id uuid NOT NULL,
+  name text NOT NULL,
+  recommender_profile ARRAY NOT NULL DEFAULT '{}'::integer[],
+  default_language text NOT NULL DEFAULT 'en'::text,
+  created_at timestamp with time zone NOT NULL DEFAULT now(),
+  CONSTRAINT profiles_pkey PRIMARY KEY (id)
+);
+
+CREATE TABLE public.ratings (
+  profile_id uuid NOT NULL,
+  video_id uuid NOT NULL,
+  value USER-DEFINED NOT NULL,
+  rated_at timestamp with time zone NOT NULL DEFAULT now(),
+  CONSTRAINT ratings_pkey PRIMARY KEY (profile_id, video_id),
+  CONSTRAINT ratings_profile_id_fkey FOREIGN KEY (profile_id) REFERENCES public.profiles(id)
+);
+
+CREATE TABLE public.series (
+  id uuid NOT NULL DEFAULT uuid_generate_v4(),
+  title text NOT NULL,
+  genre text,
+  description text,
+  created_at timestamp with time zone NOT NULL DEFAULT now(),
+  CONSTRAINT series_pkey PRIMARY KEY (id)
+);
+
+CREATE TABLE public.series_follows (
+  profile_id uuid NOT NULL,
+  series_id uuid NOT NULL,
+  notifications_enabled boolean NOT NULL DEFAULT true,
+  followed_at timestamp with time zone NOT NULL DEFAULT now(),
+  CONSTRAINT series_follows_pkey PRIMARY KEY (profile_id, series_id),
+  CONSTRAINT series_follows_profile_id_fkey FOREIGN KEY (profile_id) REFERENCES public.profiles(id),
+  CONSTRAINT series_follows_series_id_fkey FOREIGN KEY (series_id) REFERENCES public.series(id)
+);
+
+CREATE TABLE public.subtitle_tracks (
+  id uuid NOT NULL DEFAULT uuid_generate_v4(),
+  video_id uuid NOT NULL,
+  language text NOT NULL,
+  file_url text NOT NULL,
+  CONSTRAINT subtitle_tracks_pkey PRIMARY KEY (id)
+);
+
+CREATE TABLE public.users (
+  id uuid NOT NULL,
+  email text,
+  name text,
+  password text,
+  is_admin boolean NOT NULL DEFAULT false,
+  created_at timestamp without time zone DEFAULT now(),
+  CONSTRAINT users_pkey PRIMARY KEY (id)
+);
+
+CREATE TABLE public.videos (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  title text NOT NULL,
+  description text,
+  genre text,
+  category text,
+  duration text,
+  thumbnail text,
+  src text,
+  video_file text,
+  transcript text,
+  tags ARRAY DEFAULT '{}'::text[],
+  aiSummary text,
+  releaseYear text DEFAULT '2026'::text,
+  timestamps jsonb DEFAULT '[]'::jsonb,
+  uploaded_by uuid,
+  created_at timestamp with time zone NOT NULL DEFAULT now(),
+  updated_at timestamp with time zone NOT NULL DEFAULT now(),
+  CONSTRAINT videos_pkey PRIMARY KEY (id)
+);
+
+CREATE TABLE public.watch_history (
+  id uuid NOT NULL DEFAULT uuid_generate_v4(),
+  profile_id uuid NOT NULL,
+  video_id uuid NOT NULL,
+  progress_timestamp integer NOT NULL DEFAULT 0,
+  completed boolean NOT NULL DEFAULT false,
+  watched_at timestamp with time zone NOT NULL DEFAULT now(),
+  CONSTRAINT watch_history_pkey PRIMARY KEY (id),
+  CONSTRAINT watch_history_profile_id_fkey FOREIGN KEY (profile_id) REFERENCES public.profiles(id)
+);

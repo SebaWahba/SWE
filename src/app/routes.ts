@@ -5,6 +5,7 @@ import Browse from "./pages/Browse";
 import AISearch from "./pages/AISearch";
 import Watch from "./pages/Watch";
 import AuthCallback from "./pages/AuthCallback";
+import Admin from "./pages/Admin";
 
 export const router = createBrowserRouter([
   {
@@ -30,5 +31,9 @@ export const router = createBrowserRouter([
   {
     path: "/watch/:id",
     Component: Watch,
+  },
+  {
+    path: "/admin",
+    Component: Admin,
   },
 ]);

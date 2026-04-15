@@ -8,6 +8,7 @@ const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const PASSWORD_MIN_LENGTH = 8;
 const PASSWORD_SPECIAL_CHAR_PATTERN = /[^A-Za-z0-9]/;
 const PASSWORD_HASH_ITERATIONS = 120_000;
+const ADMIN_EMAILS = (Deno.env.get('h') || '').split(',').map(e => e.trim().toLowerCase()).filter(Boolean);
 
 interface StoredUser {
   id: string;
@@ -23,6 +24,7 @@ interface StoredUser {
   emailVerified?: boolean;
   emailVerifiedAt?: string;
   supabaseAuthUserId?: string;
+  isAdmin?: boolean;
 }
 
 interface PublicUser {
@@ -311,6 +313,7 @@ export async function generateToken(
   name: string,
   picture?: string,
   emailVerified = true,
+  isAdmin = false,
 ) {
   const key = await crypto.subtle.importKey(
     "raw",
@@ -326,6 +329,7 @@ export async function generateToken(
     name,
     picture,
     emailVerified,
+    isAdmin,
     exp: Date.now() + (30 * 24 * 60 * 60 * 1000) // 30 days
   };
   
@@ -372,7 +376,34 @@ export async function getUserFromAuth(authHeader: string | undefined) {
     name: payload.name as string,
     picture: payload.picture as string | undefined,
     emailVerified: payload.emailVerified !== false,
+    isAdmin: payload.isAdmin === true,
   };
+}
+
+// Helper: Check if user is admin
+export async function isUserAdmin(userId: string, email: string): Promise<boolean> {
+  // Check KV store first (legacy)
+  const user = await kv.get(`user:id:${userId}`) as StoredUser | null;
+  if (user?.isAdmin) return true;
+
+  // Check ADMIN_EMAILS env var
+  if (ADMIN_EMAILS.includes(email.toLowerCase())) return true;
+
+  // Check Supabase users table
+  try {
+    const supabase = getSupabaseServiceClient();
+    const { data, error } = await supabase
+      .from('users')
+      .select('is_admin')
+      .eq('id', userId)
+      .single();
+
+    if (!error && data?.is_admin === true) return true;
+  } catch (e) {
+    console.log('Supabase admin check failed:', e);
+  }
+
+  return false;
 }
 
 // Sign up with email/password
@@ -539,17 +570,33 @@ export async function signIn(email: string, password: string) {
     throw new Error('Email not verified. Please check your inbox for the verification link before signing in.');
   }
 
-  // Generate JWT token
+  // Check if user is admin (KV store, env var, or Supabase users table)
+  let isUserAdmin = user.isAdmin || ADMIN_EMAILS.includes(user.email.toLowerCase());
+  if (!isUserAdmin) {
+    try {
+      const supabase = getSupabaseServiceClient();
+      const { data } = await supabase
+        .from('users')
+        .select('is_admin')
+        .eq('id', user.id)
+        .single();
+      if (data?.is_admin === true) isUserAdmin = true;
+    } catch (e) {
+      console.log('Supabase admin check failed during sign in:', e);
+    }
+  }
+
   const accessToken = await generateToken(
     user.id,
     user.email,
     user.name,
     user.picture,
     user.emailVerified !== false,
+    isUserAdmin,
   );
 
   return {
-    user: toPublicUser(user),
+    user: { ...toPublicUser(user), isAdmin: isUserAdmin },
     session: { access_token: accessToken }
   };
 }
@@ -598,17 +645,33 @@ export async function getOrCreateGoogleUser(googleUser: any) {
     }
   }
 
-  // Generate JWT token
+  // Check if user is admin (KV store, env var, or Supabase users table)
+  let isUserAdmin = (user as StoredUser).isAdmin || ADMIN_EMAILS.includes((user as StoredUser).email.toLowerCase());
+  if (!isUserAdmin) {
+    try {
+      const supabase = getSupabaseServiceClient();
+      const { data } = await supabase
+        .from('users')
+        .select('is_admin')
+        .eq('id', user.id)
+        .single();
+      if (data?.is_admin === true) isUserAdmin = true;
+    } catch (e) {
+      console.log('Supabase admin check failed during Google OAuth:', e);
+    }
+  }
+
   const accessToken = await generateToken(
     user.id,
     user.email,
     user.name,
     user.picture,
     user.emailVerified !== false,
+    isUserAdmin,
   );
 
   return {
-    user: toPublicUser(user as StoredUser),
+    user: { ...toPublicUser(user as StoredUser), isAdmin: isUserAdmin },
     session: { access_token: accessToken }
   };
 }

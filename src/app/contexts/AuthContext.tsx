@@ -7,6 +7,7 @@ interface User {
   email: string;
   picture?: string;
   emailVerified: boolean;
+  isAdmin?: boolean;
 }
 
 interface SignUpResult {
@@ -52,6 +53,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
               email: supaUser.email || '',
               picture: supaUser.picture,
               emailVerified: supaUser.emailVerified !== false,
+              isAdmin: supaUser.isAdmin === true,
             });
           } else {
             localStorage.removeItem('loopy_access_token');
@@ -82,6 +84,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
               email: supaUser.email || '',
               picture: supaUser.picture,
               emailVerified: supaUser.emailVerified !== false,
+              isAdmin: supaUser.isAdmin === true,
             });
           }
         } else if (!e.newValue) {
@@ -116,6 +119,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           email: supaUser.email || email,
           picture: supaUser.picture,
           emailVerified: supaUser.emailVerified !== false,
+          isAdmin: supaUser.isAdmin === true,
         });
       }
     } finally {
