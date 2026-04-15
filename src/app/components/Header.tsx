@@ -1,5 +1,5 @@
 import { Link, useLocation, useNavigate } from "react-router";
-import { Search, Sparkles, LogOut, User, History, Plus, Trash2, Shield, Pencil } from "lucide-react";
+import { Search, Sparkles, LogOut, User, History, Shield, Trash2, Pencil, Plus } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
 import { useState, useEffect, useRef } from "react";
 import { useAuth } from "../contexts/AuthContext";
@@ -170,17 +170,9 @@ export function Header() {
                         >
                           <div className="px-4 py-3 border-b border-gray-700">
                             <div className="flex items-center gap-3">
-                              {currentProfile?.picture ? (
-                                <img
-                                  src={currentProfile.picture}
-                                  alt={currentProfile.name}
-                                  className="w-10 h-10 rounded-full border-2 border-purple-500"
-                                />
-                              ) : (
-                                <div className="w-10 h-10 rounded-full bg-gradient-to-br from-purple-500 to-pink-500 flex items-center justify-center">
-                                  <User className="w-5 h-5 text-white" />
-                                </div>
-                              )}
+                              <div className="w-10 h-10 rounded-full bg-gradient-to-br from-purple-500 to-pink-500 flex items-center justify-center">
+                                <User className="w-5 h-5 text-white" />
+                              </div>
                               <div>
                                 <p className="font-semibold text-white truncate max-w-[150px]">{currentProfile?.name}</p>
                                 <p className="text-xs text-gray-400 truncate">{user.email}</p>
