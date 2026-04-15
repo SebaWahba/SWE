@@ -1,5 +1,5 @@
 import { createContext, useContext, useState, useEffect, ReactNode, useCallback } from "react";
-import { authApi } from "../lib/api";
+import { authApi, supabase } from "../lib/api";
 
 interface User {
   id: string;
@@ -23,7 +23,6 @@ interface AuthContextType {
   signInWithEmail: (email: string, password: string) => Promise<void>;
   signUp: (email: string, password: string, name?: string) => Promise<SignUpResult>;
   resendVerificationEmail: (email: string) => Promise<any>;
-  getVerificationStatus: (email: string) => Promise<any>;
   signOut: () => Promise<void>;
   isLoading: boolean;
   accessToken: string | null;
@@ -40,67 +39,88 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     const initAuth = async () => {
       try {
-        const token = localStorage.getItem('loopy_access_token');
+        console.log('Initializing auth...');
+        // Get initial session
+        const { data: { session }, error } = await supabase.auth.getSession();
         
-        if (token) {
-          const supaUser = await authApi.getUser();
-          if (supaUser) {
-            setAccessToken(token);
-            setUser({
-              id: supaUser.id,
-              name: supaUser.name || supaUser.email?.split('@')[0] || 'User',
-              email: supaUser.email || '',
-              picture: supaUser.picture,
-              emailVerified: supaUser.emailVerified !== false,
-            });
-          } else {
-            localStorage.removeItem('loopy_access_token');
-          }
+        console.log('Initial session:', session);
+        console.log('Initial session error:', error);
+        
+        if (error) {
+          console.error('Error getting session:', error);
+        }
+        
+        if (session?.user) {
+          console.log('Setting user from initial session');
+          setAccessToken(session.access_token);
+          setUser({
+            id: session.user.id,
+            name: session.user.user_metadata?.full_name || 
+                  session.user.user_metadata?.name || 
+                  session.user.email?.split('@')[0] || 'User',
+            email: session.user.email || session.user.user_metadata?.email || '',
+            picture: session.user.user_metadata?.avatar_url || 
+                    session.user.user_metadata?.picture,
+            emailVerified: session.user.email_confirmed_at ? true : false,
+          });
+        } else {
+          console.log('No initial session found');
         }
       } catch (error) {
         console.error('Error initializing auth:', error);
-        localStorage.removeItem('loopy_access_token');
       } finally {
         setIsLoading(false);
       }
     };
 
     initAuth();
-  }, []);
 
-  // Listen for storage changes (e.g., token set by OAuth callback in another tab)
-  useEffect(() => {
-    const handleStorageChange = async (e: StorageEvent) => {
-      if (e.key === 'loopy_access_token') {
-        if (e.newValue && !user) {
-          const supaUser = await authApi.getUser();
-          if (supaUser) {
-            setAccessToken(e.newValue);
+    // Listen for auth state changes
+    let subscription: any = null;
+    
+    try {
+      const { data: { subscription: sub } } = supabase.auth.onAuthStateChange(
+        async (event, session) => {
+          console.log('Auth state change:', event, session);
+          console.log('Session user:', session?.user);
+          console.log('Session user metadata:', session?.user?.user_metadata);
+          
+          if (session?.user) {
+            setAccessToken(session.access_token);
             setUser({
-              id: supaUser.id,
-              name: supaUser.name || supaUser.email?.split('@')[0] || 'User',
-              email: supaUser.email || '',
-              picture: supaUser.picture,
-              emailVerified: supaUser.emailVerified !== false,
+              id: session.user.id,
+              name: session.user.user_metadata?.full_name || 
+                    session.user.user_metadata?.name || 
+                    session.user.email?.split('@')[0] || 'User',
+              email: session.user.email || session.user.user_metadata?.email || '',
+              picture: session.user.user_metadata?.avatar_url || 
+                      session.user.user_metadata?.picture,
+              emailVerified: session.user.email_confirmed_at ? true : false,
             });
+          } else {
+            setUser(null);
+            setAccessToken(null);
           }
-        } else if (!e.newValue) {
-          setUser(null);
-          setAccessToken(null);
+          
+          setIsLoading(false);
         }
+      );
+      subscription = sub;
+    } catch (error) {
+      console.error('Error setting up auth listener:', error);
+      setIsLoading(false);
+    }
+
+    return () => {
+      if (subscription) {
+        subscription.unsubscribe();
       }
     };
-    
-    window.addEventListener('storage', handleStorageChange);
-    return () => window.removeEventListener('storage', handleStorageChange);
-  }, [user]);
+  }, []);
 
   const signInWithGoogle = useCallback(async () => {
-    const result = await authApi.signInWithGoogle();
-    if (result?.url) {
-      return result;
-    }
-    throw new Error('No OAuth URL received');
+    await authApi.signInWithGoogle();
+    // Supabase handles the OAuth flow automatically
   }, []);
 
   const signInWithEmail = useCallback(async (email: string, password: string) => {
@@ -138,10 +158,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return await authApi.resendVerificationEmail(email);
   }, []);
 
-  const getVerificationStatus = useCallback(async (email: string) => {
-    return await authApi.getVerificationStatus(email);
-  }, []);
-
   const signOut = useCallback(async () => {
     await authApi.signOut();
     setUser(null);
@@ -149,7 +165,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   return (
-    <AuthContext.Provider value={{ user, signInWithGoogle, signInWithEmail, signUp, resendVerificationEmail, getVerificationStatus, signOut, isLoading, accessToken }}>
+    <AuthContext.Provider value={{ user, signInWithGoogle, signInWithEmail, signUp, resendVerificationEmail, signOut, isLoading, accessToken }}>
       {children}
     </AuthContext.Provider>
   );
