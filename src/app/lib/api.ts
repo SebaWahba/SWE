@@ -1,4 +1,5 @@
-import { projectId, publicAnonKey } from '/utils/supabase/info';
+const projectId = 'ydywwijhmjvtkgxkugnx';
+const publicAnonKey = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InlkeXd3aWpobWp2dGtneGt1Z254Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzEwNjYyMDUsImV4cCI6MjA4NjY0MjIwNX0.OpIif2nfVN38NGklmlaY6YiOk3dYQ0VZMEThAFOQeGk";
 import { videos as Video, playlists, watch_history } from './table-definitions';
 import { createClient } from '@supabase/supabase-js';
 
@@ -24,7 +25,6 @@ const getReturnOrigin = () => {
   if (typeof window === 'undefined') {
     return '';
   }
-
   return window.location.origin;
 };
 
@@ -79,7 +79,6 @@ export const authApi = {
       headers: getPublicHeaders(),
       body: JSON.stringify({ email, returnOrigin: getReturnOrigin() }),
     });
-
     const data = await response.json();
     if (!response.ok) throw new Error(data.error || 'Failed to resend verification email');
     return data;
@@ -91,7 +90,6 @@ export const authApi = {
       headers: getPublicHeaders(),
       body: JSON.stringify({ email }),
     });
-
     const data = await response.json();
     if (!response.ok) throw new Error(data.error || 'Failed to get verification status');
     return data;
