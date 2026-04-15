@@ -9,26 +9,14 @@ import { PageErrorBoundary } from "../components/PageErrorBoundary";
 import { GoogleOAuthSetupGuide } from "../components/GoogleOAuthSetupGuide";
 import { getSignUpValidationError } from "../lib/auth-validation";
 
-interface VerificationCheckResult {
-  email: string;
-  exists: boolean;
-  provider?: 'email' | 'google';
-  emailVerified?: boolean;
-}
-
 function LoginContent() {
   const navigate = useNavigate();
-  const { signInWithGoogle, signInWithEmail, signUp, resendVerificationEmail, getVerificationStatus, user, isLoading } = useAuth();
+  const { signInWithGoogle, signInWithEmail, signUp, resendVerificationEmail, signOut, user, isLoading } = useAuth();
   const [isSignUp, setIsSignUp] = useState(false);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [name, setName] = useState("");
   const [googleLoading, setGoogleLoading] = useState(false);
-  const [googleOAuthUrl, setGoogleOAuthUrl] = useState<string | null>(null);
-  const [verificationStatusLoading, setVerificationStatusLoading] = useState(false);
-  const [verificationStatusMessage, setVerificationStatusMessage] = useState<string | null>(null);
-  const [verificationStatusType, setVerificationStatusType] = useState<'neutral' | 'success' | 'warning' | 'error'>('neutral');
-  const [verificationCheck, setVerificationCheck] = useState<VerificationCheckResult | null>(null);
 
   // Redirect if already logged in
   useEffect(() => {
@@ -37,146 +25,24 @@ function LoginContent() {
     }
   }, [user, navigate]);
 
-  // Handle Google OAuth callback (token in URL)
+  // Handle Google OAuth callback (Supabase handles this automatically, redirect to browse if authenticated)
   useEffect(() => {
-    const urlParams = new URLSearchParams(window.location.search);
-    const token = urlParams.get('token');
-    const success = urlParams.get('success');
-    const error = urlParams.get('error');
-    const verified = urlParams.get('verified');
-    const verificationReason = urlParams.get('reason');
-    const verifiedEmail = urlParams.get('email');
-
-    if (verified === 'success') {
-      toast.success('Email verified successfully!', {
-        description: verifiedEmail
-          ? `${verifiedEmail} is now verified. You can sign in and unlock personalized features.`
-          : 'Your account is now verified. You can sign in and unlock personalized features.',
-        duration: 6000,
-      });
-
-      if (verifiedEmail) {
-        setEmail(verifiedEmail);
-      }
-
-      window.history.replaceState({}, document.title, '/login');
-      return;
-    }
-
-    if (verified === 'failed') {
-      const description = verificationReason === 'expired'
-        ? 'That verification link expired. Please request a new one from the sign-in screen.'
-        : 'The verification link is invalid or already used. Please request a new link.';
-
-      toast.error('Email verification failed', {
-        description,
-        duration: 7000,
-      });
-      window.history.replaceState({}, document.title, '/login');
-      return;
-    }
-
-    if (token && success) {
-      // Store the token
-      localStorage.setItem('loopy_access_token', token);
-      toast.success("Signed in with Google successfully!");
-      // Clean URL and redirect
-      window.history.replaceState({}, document.title, '/login');
+    if (user && !isLoading) {
       navigate("/browse");
-    } else if (error) {
-      toast.error(`Sign-in failed: ${error}`);
-      window.history.replaceState({}, document.title, '/login');
     }
-  }, [navigate]);
+  }, [user, isLoading, navigate]);
 
   const handleGoogleLogin = async () => {
     if (googleLoading) return;
     
     setGoogleLoading(true);
-    console.log('[Login] Starting Google sign-in...');
-    
     try {
-      const result = await signInWithGoogle();
-      console.log('[Login] Result from signInWithGoogle:', result);
-      
-      if (result?.url) {
-        console.log('[Login] OAuth URL received:', result.url);
-        
-        // Store the URL as fallback and redirect in same window
-        setGoogleOAuthUrl(result.url);
-        toast.info("Redirecting to Google Sign-In...", { duration: 2000 });
-        
-        // Redirect in the same window so the callback can redirect back
-        window.location.href = result.url;
-      } else {
-        console.error('[Login] No URL in result!');
-        setGoogleLoading(false);
-        toast.error("Google OAuth not configured");
-      }
+      await signInWithGoogle();
+      // Supabase will handle the redirect automatically
     } catch (error: any) {
       console.error('[Login] Error during Google sign-in:', error);
       setGoogleLoading(false);
       toast.error(error?.message || "Google sign-in failed");
-    }
-  };
-
-  const handleCheckVerificationStatus = async () => {
-    const normalizedEmail = email.trim();
-
-    if (!normalizedEmail) {
-      toast.error('Enter your email first to check verification status.');
-      return;
-    }
-
-    try {
-      setVerificationStatusLoading(true);
-      const status = await getVerificationStatus(normalizedEmail) as VerificationCheckResult;
-      setVerificationCheck(status);
-
-      if (!status.exists) {
-        setVerificationStatusType('error');
-        setVerificationStatusMessage(`No account found for ${normalizedEmail}. Create an account first.`);
-        return;
-      }
-
-      if (status.provider === 'google') {
-        setVerificationStatusType('success');
-        setVerificationStatusMessage('This account uses Google Sign-In and is already verified.');
-        return;
-      }
-
-      if (status.emailVerified) {
-        setVerificationStatusType('success');
-        setVerificationStatusMessage(`Email verified for ${status.email}. You can sign in now.`);
-      } else {
-        setVerificationStatusType('warning');
-        setVerificationStatusMessage(`Email not verified for ${status.email}. Use the button below to resend the verification link.`);
-      }
-    } catch (error: any) {
-      setVerificationCheck(null);
-      setVerificationStatusType('error');
-      setVerificationStatusMessage(error?.message || 'Could not check verification status right now.');
-    } finally {
-      setVerificationStatusLoading(false);
-    }
-  };
-
-  const handleResendVerificationFromCard = async () => {
-    const normalizedEmail = email.trim();
-
-    if (!normalizedEmail) {
-      toast.error('Enter your email first to resend the verification link.');
-      return;
-    }
-
-    try {
-      await resendVerificationEmail(normalizedEmail);
-      setVerificationStatusType('success');
-      setVerificationStatusMessage('A new verification link has been sent. Check your inbox and then click Check status again.');
-      toast.success('Verification link resent successfully.');
-    } catch (error: any) {
-      setVerificationStatusType('error');
-      setVerificationStatusMessage(error?.message || 'Could not resend verification link.');
     }
   };
 
@@ -201,6 +67,8 @@ function LoginContent() {
     try {
       if (isSignUp) {
         const result = await signUp(normalizedEmail, password, name);
+        console.log('Sign up result:', result);
+        console.log('Redirecting to:', result.redirectTo || '/');
         toast.success("Account created successfully!", {
           description: result.message || "Check your email for the verification link before signing in.",
           duration: 7000,
@@ -433,58 +301,6 @@ function LoginContent() {
               </button>
             </motion.form>
 
-            {!isSignUp && (
-              <motion.div
-                initial={{ opacity: 0, y: 10 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: 0.72 }}
-                className="mb-5 p-4 rounded-lg border border-gray-700 bg-gray-900/40"
-              >
-                <div className="flex items-center justify-between gap-3">
-                  <div>
-                    <p className="text-sm font-semibold text-gray-200">Check verification status</p>
-                    <p className="text-xs text-gray-400">Use your sign-in email to confirm account verification.</p>
-                  </div>
-                  <button
-                    type="button"
-                    onClick={handleCheckVerificationStatus}
-                    disabled={verificationStatusLoading}
-                    className="px-3 py-2 text-xs font-semibold rounded-md bg-gray-800 hover:bg-gray-700 text-white transition-colors disabled:opacity-60"
-                  >
-                    {verificationStatusLoading ? 'Checking...' : 'Check status'}
-                  </button>
-                </div>
-
-                {verificationStatusMessage && (
-                  <p
-                    className={`text-xs mt-3 ${
-                      verificationStatusType === 'success'
-                        ? 'text-emerald-300'
-                        : verificationStatusType === 'warning'
-                          ? 'text-amber-300'
-                          : verificationStatusType === 'error'
-                            ? 'text-rose-300'
-                            : 'text-gray-300'
-                    }`}
-                  >
-                    {verificationStatusMessage}
-                  </p>
-                )}
-
-                {verificationCheck?.exists &&
-                  verificationCheck.provider === 'email' &&
-                  verificationCheck.emailVerified === false && (
-                    <button
-                      type="button"
-                      onClick={handleResendVerificationFromCard}
-                      className="mt-3 px-3 py-2 text-xs font-semibold rounded-md bg-purple-700 hover:bg-purple-600 text-white transition-colors"
-                    >
-                      Resend verification link
-                    </button>
-                  )}
-              </motion.div>
-            )}
-
             {/* Divider */}
             <motion.div
               initial={{ opacity: 0 }}
@@ -524,30 +340,6 @@ function LoginContent() {
             >
               <GoogleOAuthSetupGuide />
             </motion.div>
-
-            {/* Manual OAuth Link (if popup blocked) */}
-            {googleOAuthUrl && (
-              <motion.div
-                initial={{ opacity: 0, scale: 0.9 }}
-                animate={{ opacity: 1, scale: 1 }}
-                className="mb-4 p-4 bg-purple-900/30 border border-purple-500/50 rounded-lg"
-              >
-                <p className="text-sm text-gray-300 mb-3 text-center">
-                  If the Google Sign-In window didn't open:
-                </p>
-                <a
-                  href={googleOAuthUrl}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="block w-full px-4 py-3 bg-purple-600 hover:bg-purple-500 text-white rounded-lg font-semibold text-center transition-colors"
-                >
-                  Click here to sign in with Google
-                </a>
-                <p className="text-xs text-gray-400 mt-2 text-center">
-                  (Opens in a new tab)
-                </p>
-              </motion.div>
-            )}
 
             {/* Toggle Sign Up/Sign In */}
             <motion.div

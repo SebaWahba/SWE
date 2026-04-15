@@ -24,7 +24,6 @@ interface AuthContextType {
   signInWithEmail: (email: string, password: string) => Promise<void>;
   signUp: (email: string, password: string, name?: string) => Promise<SignUpResult>;
   resendVerificationEmail: (email: string) => Promise<any>;
-  getVerificationStatus: (email: string) => Promise<any>;
   signOut: () => Promise<void>;
   isLoading: boolean;
   accessToken: string | null;
@@ -38,39 +37,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [isLoading, setIsLoading] = useState(true);
 
   // Initialize auth state once on mount
-  useEffect(() => {
-    const initAuth = async () => {
-      try {
-        const token = localStorage.getItem('loopy_access_token');
-        
-        if (token) {
-          const supaUser = await authApi.getUser();
-          if (supaUser) {
-            setAccessToken(token);
-            setUser({
-              id: supaUser.id,
-              name: supaUser.name || supaUser.email?.split('@')[0] || 'User',
-              email: supaUser.email || '',
-              picture: supaUser.picture,
-              emailVerified: supaUser.emailVerified !== false,
-              isAdmin: supaUser.isAdmin === true,
-            });
-          } else {
-            localStorage.removeItem('loopy_access_token');
-          }
-        }
-      } catch (error) {
-        console.error('Error initializing auth:', error);
-        localStorage.removeItem('loopy_access_token');
-      } finally {
-        setIsLoading(false);
-      }
-    };
-
-    initAuth();
-  }, []);
-
-  // Listen for storage changes (e.g., token set by OAuth callback in another tab)
   useEffect(() => {
     const handleStorageChange = async (e: StorageEvent) => {
       if (e.key === 'loopy_access_token') {
@@ -99,11 +65,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [user]);
 
   const signInWithGoogle = useCallback(async () => {
-    const result = await authApi.signInWithGoogle();
-    if (result?.url) {
-      return result;
-    }
-    throw new Error('No OAuth URL received');
+    await authApi.signInWithGoogle();
+    // Supabase handles the OAuth flow automatically
   }, []);
 
   const signInWithEmail = useCallback(async (email: string, password: string) => {
@@ -142,10 +105,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return await authApi.resendVerificationEmail(email);
   }, []);
 
-  const getVerificationStatus = useCallback(async (email: string) => {
-    return await authApi.getVerificationStatus(email);
-  }, []);
-
   const signOut = useCallback(async () => {
     await authApi.signOut();
     setUser(null);
@@ -153,7 +112,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   return (
-    <AuthContext.Provider value={{ user, signInWithGoogle, signInWithEmail, signUp, resendVerificationEmail, getVerificationStatus, signOut, isLoading, accessToken }}>
+    <AuthContext.Provider value={{ user, signInWithGoogle, signInWithEmail, signUp, resendVerificationEmail, signOut, isLoading, accessToken }}>
       {children}
     </AuthContext.Provider>
   );
