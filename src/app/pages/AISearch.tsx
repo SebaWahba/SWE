@@ -5,9 +5,9 @@ import { useState, useRef, useEffect } from "react";
 import { useNavigate } from "react-router";
 import { toast } from "sonner";
 import { PageErrorBoundary } from "../components/PageErrorBoundary";
-import { projectId, publicAnonKey } from '/utils/supabase/info';
+// import { projectId, publicAnonKey } from '/utils/supabase/info';
 
-const API_BASE = `https://${projectId}.supabase.co/functions/v1/make-server-e24386a0`;
+// const API_BASE = `https://${projectId}.supabase.co/functions/v1/make-server-e24386a0`;
 
 interface VideoResult {
   videoId: string;
@@ -57,51 +57,18 @@ function AISearchContent() {
     const loadingMsg: ChatMessage = { role: 'assistant', content: '', isLoading: true };
     setMessages(prev => [...prev, userMsg, loadingMsg]);
 
-    try {
-      // Build conversation history for context
-      const conversationHistory = messages
-        .filter(m => !m.isLoading)
-        .map(m => ({ role: m.role, content: m.content }));
-
-      const response = await fetch(`${API_BASE}/ai-search`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${publicAnonKey}`,
-        },
-        body: JSON.stringify({ query: q, conversationHistory }),
-      });
-
-      if (!response.ok) {
-        throw new Error('Search failed');
-      }
-
-      const data = await response.json();
-
-      // Replace loading message with actual response
+    // Simulate delay and show disabled message
+    setTimeout(() => {
       setMessages(prev => {
         const updated = prev.filter(m => !m.isLoading);
         return [...updated, {
           role: 'assistant',
-          content: data.message,
-          results: data.results || [],
+          content: "AI search functionality has been disabled. Supabase functions are no longer available.",
         }];
       });
-    } catch (error) {
-      console.error('AI search error:', error);
-      setMessages(prev => {
-        const updated = prev.filter(m => !m.isLoading);
-        return [...updated, {
-          role: 'assistant',
-          content: "I'm having trouble connecting to the AI service. Please try again in a moment.",
-        }];
-      });
-      toast.error('Search failed. Please try again.');
-    } finally {
       setIsSearching(false);
-    }
+    }, 1000);
   };
-
   const suggestedQueries = [
     "Show me videos where they talk about polar bears hunting seals",
     "What videos mention AirPods noise cancellation technology?",
