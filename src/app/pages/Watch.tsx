@@ -4,22 +4,63 @@ import { VideoCard } from "../components/VideoCard";
 import { VideoPlayer } from "../components/VideoPlayer";
 import { motion } from "motion/react";
 import { useState, useEffect, useRef } from "react";
-import { videoApi } from "../lib/api"; // Keep his Video import
+import { videoApi } from "../lib/api"; 
 import { Header } from "../components/Header";
+import { VideoPlayer } from "../components/VideoPlayer";
 import { toast } from "sonner";
 import { motion, AnimatePresence } from "motion/react";
 import { MessageSquare, Clock, X, Plus, Share2, Search, PlayCircle } from "lucide-react";
 
-// --- THE FIX: We use 'any' as a fallback to ensure genre, title, etc. never error ---
 function WatchContent() {
   const { id } = useParams();
-  const [video, setVideo] = useState<any | null>(null); // Use any to stop property errors
+  const [video, setVideo] = useState<any | null>(null); 
   const [isLoading, setIsLoading] = useState(true);
   const [transcriptSearch, setTranscriptSearch] = useState('');
   const [showChat, setShowChat] = useState(false);
   const videoRef = useRef<HTMLVideoElement>(null);
 
-  // Dynamic Logic for detailed interaction
+  // Video logic
+  const [isPlaying, setIsPlaying] = useState(false);
+  const [progress, setProgress] = useState(0);
+  const [currentTimeDisplay, setCurrentTimeDisplay] = useState("0:00");
+  const [durationDisplay, setDurationDisplay] = useState("0:00");
+
+  const formatTime = (seconds: number) => {
+    if (isNaN(seconds)) return "0:00";
+    const m = Math.floor(seconds / 60);
+    const s = Math.floor(seconds % 60);
+    return `${m}:${s.toString().padStart(2, '0')}`;
+  };
+
+  const handlePlayPause = () => {
+    if (videoRef.current) {
+      if (videoRef.current.paused) {
+        videoRef.current.play();
+      } else {
+        videoRef.current.pause();
+      }
+    }
+  };
+
+  const handleSeek = (newProgress: number) => {
+    if (videoRef.current && videoRef.current.duration) {
+      const newTime = (newProgress / 100) * videoRef.current.duration;
+      videoRef.current.currentTime = newTime;
+    }
+  };
+
+  const handleTimeUpdate = (current: number, duration: number) => {
+    if (duration > 0) {
+      setProgress((current / duration) * 100);
+      setDurationDisplay(formatTime(duration));
+    }
+    setCurrentTimeDisplay(formatTime(current));
+  };
+
+
+
+  
+
   const keyMoments = (video?.timestamps || []) as { time: string; label: string }[];
   
   const transcriptRows = video?.transcript 
@@ -71,14 +112,25 @@ function WatchContent() {
       
       <main className="container mx-auto px-4 py-24 flex flex-col lg:flex-row gap-12">
         <div className="flex-1">
-          {/* Video Player Section */}
+          
+          {/* Video Player Section with Wired Up Logic */}
           <div className="aspect-video bg-gray-900 rounded-[2rem] overflow-hidden border border-white/10 shadow-2xl relative group">
-            <video 
+            <VideoPlayer 
               key={video.id} 
               ref={videoRef}
-              controls 
               src={video.video_file || video.src} 
-              className="w-full h-full object-contain"
+              
+              // Dynamic UI State
+              isPlaying={isPlaying}
+              progress={progress}
+              currentTimeDisplay={currentTimeDisplay}
+              durationDisplay={durationDisplay}
+              
+              // Attached Logic Functions
+              onPlayPauseClick={handlePlayPause}
+              onSeek={handleSeek}
+              onTimeUpdate={handleTimeUpdate}
+              onPlayStatusChange={(playing) => setIsPlaying(playing)}
             />
           </div>
         </div>
