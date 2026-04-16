@@ -1,8 +1,4 @@
 import { useParams, useNavigate } from "react-router";
-import { Header } from "../components/Header";
-import { VideoCard } from "../components/VideoCard";
-import { VideoPlayer } from "../components/VideoPlayer";
-import { motion } from "motion/react";
 import { useState, useEffect, useRef } from "react";
 import { videoApi } from "../lib/api"; // Keep his Video import
 import { Header } from "../components/Header";
@@ -81,82 +77,6 @@ function WatchContent() {
               className="w-full h-full object-contain"
             />
           </div>
-        </div>
-      </div>
-
-      <main className="container mx-auto px-4 py-8 max-w-7xl">
-        <div className="flex flex-col lg:flex-row gap-8">
-          
-          {/* LEFT COLUMN: PLAYER & INFO */}
-          <div className="flex-1">
-            {/* 4. The Video Player */}
-            <div className="aspect-video w-full bg-black rounded-3xl overflow-hidden border border-gray-800 shadow-2xl relative group">
-              {!videoError && (
-                <VideoPlayer 
-                  ref={videoRef}
-                  src={video.video_file}
-                  key={`${video.id}-${retryCount}`}
-                  
-                  // Temporary Props for testing
-                  isPlaying={false}
-                  progress={45}
-                  currentTimeDisplay="1:30"
-                  durationDisplay="3:20"
-                  
-
-                  onError={(e) => {
-                    const videoEl = e.currentTarget;
-                    console.error('Video playback error:', {
-                      error: videoEl.error,
-                      networkState: videoEl.networkState,
-                      readyState: videoEl.readyState,
-                      src: video.video_file
-                    });
-                    
-                    let errorMsg = 'Video failed to load.';
-                    if (videoEl.error) {
-                      switch (videoEl.error.code) {
-                        case MediaError.MEDIA_ERR_ABORTED: errorMsg = 'Video playback was aborted.'; break;
-                        case MediaError.MEDIA_ERR_NETWORK: errorMsg = 'Network error while loading video.'; break;
-                        case MediaError.MEDIA_ERR_DECODE: errorMsg = 'Video format not supported by your browser.'; break;
-                        case MediaError.MEDIA_ERR_SRC_NOT_SUPPORTED: errorMsg = 'Video source not found or not supported.'; break;
-                      }
-                    }
-                    
-                    setVideoError(errorMsg);
-                    toast.error('Video playback error', { description: errorMsg });
-                  }}
-                />
-              )}
-              
-              {/* Video Error Overlay */}
-              {videoError && (
-                <div className="absolute inset-0 bg-black/80 flex items-center justify-center">
-                  <div className="text-center p-8">
-                    <div className="text-red-500 text-6xl mb-4">⚠️</div>
-                    <p className="text-white text-xl mb-2">{videoError}</p>
-                    <p className="text-gray-400 text-sm mb-6">Video URL: {video.videoUrl.substring(0, 60)}...</p>
-                    <div className="flex gap-3 justify-center">
-                      <button
-                        onClick={() => {
-                          setVideoError(null);
-                          setRetryCount(prev => prev + 1);
-                        }}
-                        className="px-6 py-3 bg-purple-600 hover:bg-purple-500 rounded-lg font-semibold transition-colors"
-                      >
-                        Retry Video
-                      </button>
-                      <button
-                        onClick={() => navigate('/browse')}
-                        className="px-6 py-3 bg-gray-700 hover:bg-gray-600 rounded-lg font-semibold transition-colors"
-                      >
-                        Back to Browse
-                      </button>
-                    </div>
-                  </div>
-                </div>
-              )}
-            </div>
 
           {/* Metadata Section */}
           <div className="mt-8">
