@@ -20,7 +20,6 @@ This repository contains all the functionality for Supabase CLI.
 Available via [NPM](https://www.npmjs.com) as dev dependency. To install:
 
 - **START_HERE.md** - Quick start and common fixes
-- **TROUBLESHOOTING_GUIDE.md** - Comprehensive problem-solving guide
 - **QUICK_DEBUG_SCRIPT.md** - Automated diagnostic script
 - **FIXES_APPLIED.md** - Recent changes and improvements
 
@@ -52,16 +51,8 @@ Every error includes:
 - Create account and sign in
 - Full feature access
 
-### Google Sign-In (Requires Setup ⚙️)
-Follow the complete guide in `TROUBLESHOOTING_GUIDE.md` → Section "Issue 2"
-
-**Quick version:**
-1. Set up OAuth in Google Cloud Console
-2. Configure provider in Supabase Dashboard
-3. Add redirect URLs
-4. Test sign-in
-
-**Or just use email/password** - it's much simpler!
+### Google Sign-In
+Available but requires additional configuration. Use email/password for simplicity.
 
 ## 🎥 Features
 
@@ -172,7 +163,7 @@ Press **F12** to see:
 | Issue | Cause | Fix |
 |-------|-------|-----|
 | Videos not loading | Server down | Check status indicator, redeploy |
-| Google Sign-In fails | Not configured | See TROUBLESHOOTING_GUIDE.md |
+| Google Sign-In fails | Not configured | Requires additional setup |
 | No recommendations | Not logged in / No watch history | Sign in and watch videos |
 
 ## 📊 Project Structure
@@ -203,7 +194,6 @@ Press **F12** to see:
 │   └── info.tsx               # Supabase config
 └── docs/
     ├── START_HERE.md
-    ├── TROUBLESHOOTING_GUIDE.md
     ├── QUICK_DEBUG_SCRIPT.md
     └── FIXES_APPLIED.md
 ```

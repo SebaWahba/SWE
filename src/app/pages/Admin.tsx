@@ -46,27 +46,22 @@ const GENRES = [
   "Uncategorized",
 ];
 
-const CATEGORIES = [
-  "Nature",
-  "Science",
-  "Technology",
-  "Travel",
-  "Food",
-  "Documentary",
-  "Entertainment",
-  "Education",
-  "Uncategorized",
-];
-
 interface UploadedVideo {
   id: string;
   title: string;
   description: string;
   genre: string;
-  category: string;
+  releaseYear: number;
+  duration: number;
+  status: 'processing' | 'ready' | 'deleted';
+  intro_start: number;
+  intro_end: number;
+  recap_start: number;
+  recap_end: number;
   video_file: string;
-  tags: string[];
+  uploaded_by: string;
   created_at: string;
+  updated_at: string;
 }
 
 function AdminContent() {
@@ -76,8 +71,13 @@ function AdminContent() {
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
   const [genre, setGenre] = useState("");
-  const [category, setCategory] = useState("");
-  const [tags, setTags] = useState("");
+  const [releaseYear, setReleaseYear] = useState("");
+  const [duration, setDuration] = useState("");
+  const [status, setStatus] = useState<'processing' | 'ready' | 'deleted'>('ready');
+  const [introStart, setIntroStart] = useState("");
+  const [introEnd, setIntroEnd] = useState("");
+  const [recapStart, setRecapStart] = useState("");
+  const [recapEnd, setRecapEnd] = useState("");
   const [isUploading, setIsUploading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
   const [myVideos, setMyVideos] = useState<UploadedVideo[]>([]);
@@ -162,8 +162,13 @@ function AdminContent() {
       title.trim(),
       description.trim() || undefined,
       genre || undefined,
-      category || undefined,
-      tags || undefined,
+      releaseYear ? parseInt(releaseYear) : undefined,
+      duration ? parseInt(duration) : undefined,
+      status,
+      introStart ? parseInt(introStart) : undefined,
+      introEnd ? parseInt(introEnd) : undefined,
+      recapStart ? parseInt(recapStart) : undefined,
+      recapEnd ? parseInt(recapEnd) : undefined,
       (progress) => setUploadProgress(progress)
     );
 
@@ -177,8 +182,13 @@ function AdminContent() {
       setTitle("");
       setDescription("");
       setGenre("");
-      setCategory("");
-      setTags("");
+      setReleaseYear("");
+      setDuration("");
+      setStatus('ready');
+      setIntroStart("");
+      setIntroEnd("");
+      setRecapStart("");
+      setRecapEnd("");
       setUploadProgress(0);
       if (fileInputRef.current) {
         fileInputRef.current.value = "";
@@ -346,28 +356,87 @@ function AdminContent() {
                 </div>
 
                 <div className="space-y-2">
-                  <Label htmlFor="category">Category</Label>
-                  <Select value={category} onValueChange={setCategory} disabled={isUploading}>
+                  <Label htmlFor="releaseYear">Release Year</Label>
+                  <Input
+                    id="releaseYear"
+                    type="number"
+                    placeholder="e.g., 2023"
+                    value={releaseYear}
+                    onChange={(e) => setReleaseYear(e.target.value)}
+                    disabled={isUploading}
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="duration">Duration (minutes)</Label>
+                  <Input
+                    id="duration"
+                    type="number"
+                    placeholder="e.g., 120"
+                    value={duration}
+                    onChange={(e) => setDuration(e.target.value)}
+                    disabled={isUploading}
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="status">Status</Label>
+                  <Select value={status} onValueChange={(value: 'processing' | 'ready' | 'deleted') => setStatus(value)} disabled={isUploading}>
                     <SelectTrigger>
-                      <SelectValue placeholder="Select category" />
+                      <SelectValue placeholder="Select status" />
                     </SelectTrigger>
                     <SelectContent>
-                      {CATEGORIES.map((c) => (
-                        <SelectItem key={c} value={c}>
-                          {c}
-                        </SelectItem>
-                      ))}
+                      <SelectItem value="processing">Processing</SelectItem>
+                      <SelectItem value="ready">Ready</SelectItem>
+                      <SelectItem value="deleted">Deleted</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
 
                 <div className="space-y-2">
-                  <Label htmlFor="tags">Tags (comma-separated)</Label>
+                  <Label htmlFor="introStart">Intro Start (seconds)</Label>
                   <Input
-                    id="tags"
-                    placeholder="e.g., wildlife, nature, documentary"
-                    value={tags}
-                    onChange={(e) => setTags(e.target.value)}
+                    id="introStart"
+                    type="number"
+                    placeholder="e.g., 0"
+                    value={introStart}
+                    onChange={(e) => setIntroStart(e.target.value)}
+                    disabled={isUploading}
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="introEnd">Intro End (seconds)</Label>
+                  <Input
+                    id="introEnd"
+                    type="number"
+                    placeholder="e.g., 30"
+                    value={introEnd}
+                    onChange={(e) => setIntroEnd(e.target.value)}
+                    disabled={isUploading}
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="recapStart">Recap Start (seconds)</Label>
+                  <Input
+                    id="recapStart"
+                    type="number"
+                    placeholder="e.g., 0"
+                    value={recapStart}
+                    onChange={(e) => setRecapStart(e.target.value)}
+                    disabled={isUploading}
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="recapEnd">Recap End (seconds)</Label>
+                  <Input
+                    id="recapEnd"
+                    type="number"
+                    placeholder="e.g., 60"
+                    value={recapEnd}
+                    onChange={(e) => setRecapEnd(e.target.value)}
                     disabled={isUploading}
                   />
                 </div>
@@ -423,8 +492,10 @@ function AdminContent() {
                     <TableHeader>
                       <TableRow>
                         <TableHead>Title</TableHead>
-                        <TableHead>Category</TableHead>
-                        <TableHead>Tags</TableHead>
+                        <TableHead>Genre</TableHead>
+                        <TableHead>Release Year</TableHead>
+                        <TableHead>Duration</TableHead>
+                        <TableHead>Status</TableHead>
                         <TableHead>Date</TableHead>
                         <TableHead className="text-right">Actions</TableHead>
                       </TableRow>
@@ -435,15 +506,13 @@ function AdminContent() {
                           <TableCell className="font-medium">
                             <div className="max-w-[200px] truncate">{video.title}</div>
                           </TableCell>
+                          <TableCell>{video.genre}</TableCell>
+                          <TableCell>{video.releaseYear}</TableCell>
+                          <TableCell>{video.duration} min</TableCell>
                           <TableCell>
                             <span className="inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-semibold transition-colors focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 border-transparent bg-secondary text-secondary-foreground hover:bg-secondary/80">
-                              {video.category || 'Uncategorized'}
+                              {video.status}
                             </span>
-                          </TableCell>
-                          <TableCell className="text-muted-foreground">
-                            <div className="max-w-[150px] truncate">
-                              {video.tags?.join(', ') || '-'}
-                            </div>
                           </TableCell>
                           <TableCell className="text-muted-foreground">
                             {formatDate(video.created_at)}

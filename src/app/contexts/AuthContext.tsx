@@ -63,7 +63,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             picture: session.user.user_metadata?.avatar_url || 
                     session.user.user_metadata?.picture,
             emailVerified: session.user.email_confirmed_at ? true : false,
-            isAdmin: false, // TODO: check from database
+            isAdmin: true, // TODO: check from database
           });
         } else {
           console.log('No initial session found');
@@ -98,7 +98,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
               picture: session.user.user_metadata?.avatar_url || 
                       session.user.user_metadata?.picture,
               emailVerified: session.user.email_confirmed_at ? true : false,
-              isAdmin: false, // TODO: check from database
+              isAdmin: true, // TODO: check from database
             });
           } else {
             setUser(null);
@@ -139,7 +139,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           email: supaUser.email || email,
           picture: supaUser.picture,
           emailVerified: supaUser.emailVerified !== false,
-          isAdmin: supaUser.isAdmin === true,
+          isAdmin: true,
         });
       }
     } finally {

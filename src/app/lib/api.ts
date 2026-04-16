@@ -233,8 +233,13 @@ export const adminApi = {
     title: string,
     description?: string,
     genre?: string,
-    category?: string,
-    tags?: string,
+    releaseYear?: number,
+    duration?: number,
+    status?: 'processing' | 'ready' | 'deleted',
+    intro_start?: number,
+    intro_end?: number,
+    recap_start?: number,
+    recap_end?: number,
     onProgress?: (progress: number) => void
   ): Promise<{ success: boolean; video?: any; publicUrl?: string; error?: string }> => {
     if (!ALLOWED_VIDEO_TYPES.includes(file.type)) {
@@ -273,15 +278,15 @@ export const adminApi = {
         title,
         description: description || '',
         genre: genre || '',
+        releaseYear: releaseYear || new Date().getFullYear(),
+        duration: duration || 0,
+        status: status || 'ready',
+        intro_start: intro_start || 0,
+        intro_end: intro_end || 0,
+        recap_start: recap_start || 0,
+        recap_end: recap_end || 0,
         video_file: publicUrl,
         uploaded_by: user.id,
-        status: 'ready' as const,
-        duration: 0, // TODO: calculate duration
-        releaseYear: new Date().getFullYear(),
-        intro_start: 0,
-        intro_end: 0,
-        recap_start: 0,
-        recap_end: 0,
       };
 
       const { data: insertedVideo, error: insertError } = await supabase

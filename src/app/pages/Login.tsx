@@ -6,7 +6,6 @@ import { useAuth } from "../contexts/AuthContext";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import { PageErrorBoundary } from "../components/PageErrorBoundary";
-import { GoogleOAuthSetupGuide } from "../components/GoogleOAuthSetupGuide";
 import { getSignUpValidationError } from "../lib/auth-validation";
 
 function LoginContent() {
@@ -332,15 +331,6 @@ function LoginContent() {
             </motion.button>
 
             {/* Google OAuth Setup Note */}
-            <motion.div
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              transition={{ delay: 1.1 }}
-              className="text-center mb-4"
-            >
-              <GoogleOAuthSetupGuide />
-            </motion.div>
-
             {/* Toggle Sign Up/Sign In */}
             <motion.div
               initial={{ opacity: 0 }}
