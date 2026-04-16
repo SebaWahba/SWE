@@ -172,4 +172,43 @@ export const dbApi = {
     if (error) throw error;
     return data || [];
   },
+
+  // Profile related functions
+  getProfiles: async (accountId: string): Promise<profiles[]> => {
+    const { data, error } = await supabase
+      .from('profiles')
+      .select('*')
+      .eq('account_id', accountId);
+    if (error) throw error;
+    return data || [];
+  },
+
+  createProfile: async (profile: Omit<profiles, 'id' | 'created_at'>): Promise<profiles> => {
+    const { data, error } = await supabase
+      .from('profiles')
+      .insert([profile])
+      .select()
+      .single();
+    if (error) throw error;
+    return data;
+  },
+
+  updateProfile: async (id: string, updates: Partial<profiles>): Promise<profiles> => {
+    const { data, error } = await supabase
+      .from('profiles')
+      .update(updates)
+      .eq('id', id)
+      .select()
+      .single();
+    if (error) throw error;
+    return data;
+  },
+
+  deleteProfile: async (id: string): Promise<void> => {
+    const { error } = await supabase
+      .from('profiles')
+      .delete()
+      .eq('id', id);
+    if (error) throw error;
+  }
 };
