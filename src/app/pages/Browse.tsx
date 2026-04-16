@@ -4,6 +4,7 @@ import { VideoRow } from "../components/VideoRow";
 import { motion } from "motion/react";
 import { useRecommendations } from "../contexts/RecommendationContext";
 import { useAuth } from "../contexts/AuthContext";
+import { useProfile } from "../contexts/ProfileContext";
 import { Sparkles, TrendingUp } from "lucide-react";
 import { RecommendationTutorial } from "../components/RecommendationTutorial";
 import { useState, useEffect } from "react";
