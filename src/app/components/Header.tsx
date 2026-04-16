@@ -1,5 +1,5 @@
 import { Link, useLocation, useNavigate } from "react-router";
-import { Search, Sparkles, LogOut, User, History, Plus, Trash2, Shield } from "lucide-react";
+import { Search, Sparkles, LogOut, User, History, Plus, Trash2, Shield, Pencil } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
 import { useState, useEffect, useRef } from "react";
 import { useAuth } from "../contexts/AuthContext";
@@ -11,14 +11,17 @@ export function Header() {
   const location = useLocation();
   const navigate = useNavigate();
   const { user, signOut } = useAuth();
-  const { profiles, currentProfile, setCurrentProfile, addProfile, deleteProfile, loading: profileLoading } = useProfile();
+  const { profiles, currentProfile, setCurrentProfile, addProfile, deleteProfile, updateProfile, loading: profileLoading } = useProfile();
   const [isScrolled, setIsScrolled] = useState(false);
   const [showUserMenu, setShowUserMenu] = useState(false);
   const [showHistoryModal, setShowHistoryModal] = useState(false);
   const [showAddProfile, setShowAddProfile] = useState(false);
+  const [showDeleteProfile, setShowDeleteProfile] = useState(false);
+  const [showEditProfile, setShowEditProfile] = useState(false);
+  const [profileToDelete, setProfileToDelete] = useState<{id: string; name: string} | null>(null);
+  const [profileToEdit, setProfileToEdit] = useState<{id: string; name: string} | null>(null);
   const [newProfileName, setNewProfileName] = useState('');
   const [newProfileLanguage, setNewProfileLanguage] = useState('en');
-  const [deletingProfileId, setDeletingProfileId] = useState<string | null>(null);
   const menuRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -216,25 +219,35 @@ export function Header() {
                                       </svg>
                                     )}
                                   </button>
-                                  {profiles.length > 1 && (
-                                    <button
-                                      onClick={async (e) => {
-                                        e.stopPropagation();
-                                        if (confirm(`Are you sure you want to delete "${profile.name}"?`)) {
-                                          try {
-                                            await deleteProfile(profile.id);
-                                            toast.success('Profile deleted');
-                                          } catch (error: any) {
-                                            toast.error(error.message || 'Failed to delete profile');
-                                          }
-                                        }
-                                      }}
-                                      className="p-2 text-gray-500 hover:text-red-400 transition-colors"
-                                      title="Delete profile"
-                                    >
-                                      <Trash2 className="w-4 h-4" />
-                                    </button>
-                                  )}
+                                  <div className="flex items-center gap-1">
+                                    {profiles.length > 1 && (
+                                      <>
+                                        <button
+                                          onClick={(e) => {
+                                            e.stopPropagation();
+                                            setProfileToDelete({ id: profile.id, name: profile.name });
+                                            setShowDeleteProfile(true);
+                                          }}
+                                          className="p-2 text-gray-500 hover:text-red-400 transition-colors"
+                                          title="Delete profile"
+                                        >
+                                          <Trash2 className="w-4 h-4" />
+                                        </button>
+                                        <button
+                                          onClick={(e) => {
+                                            e.stopPropagation();
+                                            setProfileToEdit({ id: profile.id, name: profile.name });
+                                            setNewProfileName(profile.name);
+                                            setShowEditProfile(true);
+                                          }}
+                                          className="p-2 text-gray-500 hover:text-purple-400 transition-colors"
+                                          title="Edit profile"
+                                        >
+                                          <Pencil className="w-4 h-4" />
+                                        </button>
+                                      </>
+                                    )}
+                                  </div>
                                 </div>
                               ))}
                               <button
@@ -401,6 +414,138 @@ export function Header() {
                 <p className="text-xs text-gray-500 text-center">
                   Profiles help keep your viewing history and recommendations separate
                 </p>
+              </div>
+            </motion.div>
+          </>
+        )}
+      </AnimatePresence>
+
+      <AnimatePresence>
+        {showDeleteProfile && profileToDelete && (
+          <>
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => { setShowDeleteProfile(false); setProfileToDelete(null); }}
+              className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50"
+            />
+            <motion.div
+              initial={{ opacity: 0, scale: 0.9 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.9 }}
+              className="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 bg-gray-900 rounded-2xl border border-gray-700 shadow-2xl z-50 max-w-md w-full p-6"
+            >
+              <div className="space-y-6">
+                <div className="flex items-center gap-4">
+                  <div className="w-12 h-12 rounded-full bg-red-500/20 flex items-center justify-center">
+                    <Trash2 className="w-6 h-6 text-red-500" />
+                  </div>
+                  <div>
+                    <h3 className="text-lg font-semibold text-white">Delete Profile</h3>
+                    <p className="text-sm text-gray-400">This action cannot be undone</p>
+                  </div>
+                </div>
+
+                <div className="p-4 bg-gray-800/50 rounded-lg">
+                  <p className="text-sm text-gray-300">
+                    Are you sure you want to delete <span className="font-semibold text-white">{profileToDelete.name}</span>? 
+                    All watch history and recommendations for this profile will be permanently deleted.
+                  </p>
+                </div>
+
+                <div className="flex gap-3">
+                  <button
+                    onClick={() => { setShowDeleteProfile(false); setProfileToDelete(null); }}
+                    className="flex-1 px-6 py-3 bg-gray-700 text-white rounded-lg font-semibold hover:bg-gray-600 transition-colors"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    onClick={async () => {
+                      try {
+                        await deleteProfile(profileToDelete.id);
+                        toast.success('Profile deleted successfully');
+                        setShowDeleteProfile(false);
+                        setProfileToDelete(null);
+                      } catch (error: any) {
+                        toast.error(error.message || 'Failed to delete profile');
+                      }
+                    }}
+                    disabled={profileLoading}
+                    className="flex-1 px-6 py-3 bg-red-600 text-white rounded-lg font-semibold hover:bg-red-500 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    {profileLoading ? 'Deleting...' : 'Delete'}
+                  </button>
+                </div>
+              </div>
+            </motion.div>
+          </>
+        )}
+      </AnimatePresence>
+
+      <AnimatePresence>
+        {showEditProfile && profileToEdit && (
+          <>
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => { setShowEditProfile(false); setProfileToEdit(null); setNewProfileName(''); }}
+              className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50"
+            />
+            <motion.div
+              initial={{ opacity: 0, scale: 0.9 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.9 }}
+              className="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 bg-gray-900 rounded-2xl border border-gray-700 shadow-2xl z-50 max-w-md w-full p-6"
+            >
+              <div className="space-y-6">
+                <div className="flex justify-between items-start">
+                  <h3 className="text-lg font-semibold text-white">Edit Profile</h3>
+                  <button
+                    onClick={() => { setShowEditProfile(false); setProfileToEdit(null); setNewProfileName(''); }}
+                    className="text-gray-400 hover:text-white"
+                  >
+                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                    </svg>
+                  </button>
+                </div>
+
+                <form onSubmit={async (e) => {
+                  e.preventDefault();
+                  if (newProfileName.trim() && newProfileName !== profileToEdit.name) {
+                    try {
+                      await updateProfile(profileToEdit.id, { name: newProfileName });
+                      toast.success('Profile updated');
+                      setShowEditProfile(false);
+                      setProfileToEdit(null);
+                      setNewProfileName('');
+                    } catch (error: any) {
+                      toast.error(error.message || 'Failed to update profile');
+                    }
+                  }
+                }} className="space-y-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-300 mb-1">Profile Name</label>
+                    <input
+                      type="text"
+                      value={newProfileName}
+                      onChange={(e) => setNewProfileName(e.target.value)}
+                      placeholder="Enter profile name"
+                      className="w-full px-4 py-3 bg-gray-800/50 border border-gray-600 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:border-purple-500 transition-colors"
+                    />
+                  </div>
+
+                  <button
+                    type="submit"
+                    disabled={profileLoading || !newProfileName.trim() || newProfileName === profileToEdit.name}
+                    className="w-full px-6 py-3 bg-gradient-to-r from-purple-600 to-pink-600 text-white rounded-lg font-semibold text-base hover:from-purple-500 hover:to-pink-500 transition-all shadow-lg disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    {profileLoading ? 'Saving...' : 'Save Changes'}
+                  </button>
+                </form>
               </div>
             </motion.div>
           </>
