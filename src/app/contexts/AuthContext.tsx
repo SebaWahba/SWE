@@ -1,5 +1,5 @@
 import { createContext, useContext, useState, useEffect, ReactNode, useCallback } from "react";
-import { authApi } from "../lib/api";
+import { authApi, supabase } from "../lib/api";
 
 interface User {
   id: string;
@@ -38,31 +38,88 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   // Initialize auth state once on mount
   useEffect(() => {
-    const handleStorageChange = async (e: StorageEvent) => {
-      if (e.key === 'loopy_access_token') {
-        if (e.newValue && !user) {
-          const supaUser = await authApi.getUser();
-          if (supaUser) {
-            setAccessToken(e.newValue);
-            setUser({
-              id: supaUser.id,
-              name: supaUser.name || supaUser.email?.split('@')[0] || 'User',
-              email: supaUser.email || '',
-              picture: supaUser.picture,
-              emailVerified: supaUser.emailVerified !== false,
-              isAdmin: supaUser.isAdmin === true,
-            });
-          }
-        } else if (!e.newValue) {
-          setUser(null);
-          setAccessToken(null);
+    const initAuth = async () => {
+      try {
+        console.log('Initializing auth...');
+        // Get initial session
+        const { data: { session }, error } = await supabase.auth.getSession();
+        
+        console.log('Initial session:', session);
+        console.log('Initial session error:', error);
+        
+        if (error) {
+          console.error('Error getting session:', error);
         }
+        
+        if (session?.user) {
+          console.log('Setting user from initial session');
+          setAccessToken(session.access_token);
+          setUser({
+            id: session.user.id,
+            name: session.user.user_metadata?.full_name || 
+                  session.user.user_metadata?.name || 
+                  session.user.email?.split('@')[0] || 'User',
+            email: session.user.email || session.user.user_metadata?.email || '',
+            picture: session.user.user_metadata?.avatar_url || 
+                    session.user.user_metadata?.picture,
+            emailVerified: session.user.email_confirmed_at ? true : false,
+            isAdmin: false, // TODO: check from database
+          });
+        } else {
+          console.log('No initial session found');
+        }
+      } catch (error) {
+        console.error('Error initializing auth:', error);
+      } finally {
+        setIsLoading(false);
       }
     };
+
+    initAuth();
+
+    // Listen for auth state changes
+    let subscription: any = null;
     
-    window.addEventListener('storage', handleStorageChange);
-    return () => window.removeEventListener('storage', handleStorageChange);
-  }, [user]);
+    try {
+      const { data: { subscription: sub } } = supabase.auth.onAuthStateChange(
+        async (event, session) => {
+          console.log('Auth state change:', event, session);
+          console.log('Session user:', session?.user);
+          console.log('Session user metadata:', session?.user?.user_metadata);
+          
+          if (session?.user) {
+            setAccessToken(session.access_token);
+            setUser({
+              id: session.user.id,
+              name: session.user.user_metadata?.full_name || 
+                    session.user.user_metadata?.name || 
+                    session.user.email?.split('@')[0] || 'User',
+              email: session.user.email || session.user.user_metadata?.email || '',
+              picture: session.user.user_metadata?.avatar_url || 
+                      session.user.user_metadata?.picture,
+              emailVerified: session.user.email_confirmed_at ? true : false,
+              isAdmin: false, // TODO: check from database
+            });
+          } else {
+            setUser(null);
+            setAccessToken(null);
+          }
+          
+          setIsLoading(false);
+        }
+      );
+      subscription = sub;
+    } catch (error) {
+      console.error('Error setting up auth listener:', error);
+      setIsLoading(false);
+    }
+
+    return () => {
+      if (subscription) {
+        subscription.unsubscribe();
+      }
+    };
+  }, []);
 
   const signInWithGoogle = useCallback(async () => {
     await authApi.signInWithGoogle();

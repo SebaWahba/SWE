@@ -3,10 +3,8 @@ const publicAnonKey = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFz
 import { videos as Video, playlists, watch_history, profiles } from './table-definitions';
 import { createClient } from '@supabase/supabase-js';
 
-const API_BASE = `https://${projectId}.supabase.co/functions/v1/make-server-e24386a0`;
 const ALLOWED_VIDEO_TYPES = ['video/mp4', 'video/webm', 'video/quicktime', 'video/x-msvideo'];
 const MAX_VIDEO_SIZE = 5 * 1024 * 1024 * 1024; // 5GB
-
 const getAuthHeaders = () => {
   const token = localStorage.getItem('loopy_access_token');
   if (!token) return null;
@@ -18,6 +16,7 @@ const getAuthHeaders = () => {
 
 const supabase = createClient(`https://${projectId}.supabase.co`, publicAnonKey);
 
+export { supabase };
 export const videoApi = {
   getAll: async (category?: string, limit = 100, offset = 0): Promise<{ videos: Video[]; total: number }> => {
     let query = supabase.from('videos').select('*', { count: 'exact' });
@@ -33,7 +32,7 @@ export const videoApi = {
     const { data, error, count } = await supabase
       .from('videos')
       .select('*', { count: 'exact' })
-      .or(`title.ilike.%${query}%,description.ilike.%${query}%`);
+      .or(`title.ilike.%${query}%,description.ilike.%${query}%,transcript.ilike.%${query}%`);
     if (error) throw error;
     return { videos: (data || []) as Video[], total: count || 0 };
   },
@@ -64,96 +63,75 @@ const getReturnOrigin = () => {
 
 export const authApi = {
   signUp: async (email: string, password: string, name?: string) => {
-    const response = await fetch(`${API_BASE}/auth/signup`, {
-      method: 'POST',
-      headers: getPublicHeaders(),
-      body: JSON.stringify({ email, password, name, returnOrigin: getReturnOrigin() }),
+    const { data, error } = await supabase.auth.signUp({
+      email,
+      password,
+      options: {
+        data: { name },
+      },
     });
-    const data = await response.json();
-    if (!response.ok) throw new Error(data.error || 'Sign up failed');
-    return data;
+    if (error) throw error;
+    return {
+      user: data.user,
+      session: data.session,
+      requiresEmailVerification: !data.session,
+      message: !data.session ? 'Check your email for verification link.' : 'Account created successfully.',
+      redirectTo: '/browse',
+    };
   },
 
   resendVerificationEmail: async (email: string) => {
-    const response = await fetch(`${API_BASE}/auth/resend-verification`, {
-      method: 'POST',
-      headers: getPublicHeaders(),
-      body: JSON.stringify({ email, returnOrigin: getReturnOrigin() }),
+    const { error } = await supabase.auth.resend({
+      type: 'signup',
+      email,
     });
-
-    const data = await response.json();
-    if (!response.ok) throw new Error(data.error || 'Failed to resend verification email');
-    return data;
+    if (error) throw error;
+    return { message: 'Verification email sent.' };
   },
 
   getVerificationStatus: async (email: string) => {
-    const response = await fetch(`${API_BASE}/auth/verification-status`, {
-      method: 'POST',
-      headers: getPublicHeaders(),
-      body: JSON.stringify({ email }),
-    });
-
-    const data = await response.json();
-    if (!response.ok) throw new Error(data.error || 'Failed to get verification status');
-    return data;
+    // With Supabase Auth, we can't directly check verification status
+    // This would require admin API or checking the user if signed in
+    throw new Error('Verification status check not available with standard Supabase Auth');
   },
 
   signIn: async (email: string, password: string) => {
-    const response = await fetch(`${API_BASE}/auth/signin`, {
-      method: 'POST',
-      headers: getPublicHeaders(),
-      body: JSON.stringify({ email, password }),
+    const { data, error } = await supabase.auth.signInWithPassword({
+      email,
+      password,
     });
-    const data = await response.json();
-    if (!response.ok) throw new Error(data.error || 'Sign in failed');
-    localStorage.setItem('loopy_access_token', data.session.access_token);
+    if (error) throw error;
+    // Supabase automatically manages the session
     return data;
   },
 
   signInWithGoogle: async () => {
-    const response = await fetch(`${API_BASE}/auth/google`, {
-      method: 'POST',
-      headers: getPublicHeaders(),
-      body: JSON.stringify({ returnOrigin: getReturnOrigin() }),
+    const { data, error } = await supabase.auth.signInWithOAuth({
+      provider: 'google',
+      options: {
+        redirectTo: `${window.location.origin}/browse`,
+      },
     });
-    const data = await response.json();
-    if (!response.ok) throw new Error(data.error || 'Google sign-in failed');
-    if (!data?.url) throw new Error('Failed to get Google sign-in URL');
-    return data;
+    if (error) throw error;
+    // Supabase handles the redirect automatically
   },
 
   signOut: async () => {
-    localStorage.removeItem('loopy_access_token');
+    const { error } = await supabase.auth.signOut();
+    if (error) throw error;
+    // Supabase clears the session automatically
   },
 
   getSession: async () => {
-    const token = localStorage.getItem('loopy_access_token');
-    if (!token) return null;
-    return { access_token: token, token_type: 'bearer' };
+    const { data, error } = await supabase.auth.getSession();
+    if (error) throw error;
+    return data.session;
   },
 
   getUser: async () => {
-    try {
-      const token = localStorage.getItem('loopy_access_token');
-      if (!token) return null;
-
-      const response = await fetch(`${API_BASE}/auth/user`, {
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`,
-        },
-      });
-
-      if (!response.ok) {
-        localStorage.removeItem('loopy_access_token');
-        return null;
-      }
-
-      const data = await response.json();
-      return data.user;
-    } catch {
-      return null;
-    }
+    const { data, error } = await supabase.auth.getUser();
+    if (error) throw error;
+    return data.user;
   },
 };
 
@@ -247,6 +225,7 @@ export const dbApi = {
       .eq('id', id);
     if (error) throw error;
   }
+<<<<<<< HEAD
 };
 
 export const adminApi = {
@@ -268,26 +247,108 @@ export const adminApi = {
     }
 
     try {
-      const token = localStorage.getItem('loopy_access_token');
-      if (!token) return { success: false, error: 'Not authenticated' };
+      const { data: userData, error: userError } = await supabase.auth.getUser();
+      if (userError || !userData.user) return { success: false, error: 'Not authenticated' };
 
-      const formData = new FormData();
-      formData.append('video', file);
-      formData.append('title', title);
-      formData.append('description', description || '');
-      formData.append('genre', genre || '');
-      formData.append('category', category || '');
-      formData.append('tags', tags || '');
+      const user = userData.user;
+      const path = `${user.id}/${Date.now()}-${file.name}`;
 
-      const result = await new Promise<{ success: boolean; video?: any; publicUrl?: string; error?: string }>((resolve) => {
-        const xhr = new XMLHttpRequest();
+      const { data: uploadData, error: uploadError } = await supabase.storage
+        .from('videos')
+        .upload(path, file, {
+          upsert: false,
+          onUploadProgress: ({ loaded, total }) => {
+            onProgress?.((loaded / total) * 100);
+          },
+        });
 
-        if (onProgress) {
-          xhr.upload.onprogress = (e) => {
-            if (e.lengthComputable) {
-              onProgress(Math.round((e.loaded / e.total) * 100));
-            }
-          };
+      if (uploadError) return { success: false, error: uploadError.message };
+
+      const { data: publicUrlData } = supabase.storage
+        .from('videos')
+        .getPublicUrl(path);
+
+      const publicUrl = publicUrlData.publicUrl;
+
+      const videoData = {
+        title,
+        description: description || '',
+        genre: genre || '',
+        video_file: publicUrl,
+        uploaded_by: user.id,
+        status: 'ready' as const,
+        duration: 0, // TODO: calculate duration
+        releaseYear: new Date().getFullYear(),
+        intro_start: 0,
+        intro_end: 0,
+        recap_start: 0,
+        recap_end: 0,
+      };
+
+      const { data: insertedVideo, error: insertError } = await supabase
+        .from('videos')
+        .insert([videoData])
+        .select()
+        .single();
+
+      if (insertError) {
+        // Clean up storage
+        await supabase.storage.from('videos').remove([path]);
+        return { success: false, error: insertError.message };
+      }
+
+      return { success: true, video: insertedVideo, publicUrl };
+    } catch (error) {
+      return { success: false, error: error instanceof Error ? error.message : 'Upload failed' };
+    }
+  },
+
+  getMyVideos: async (): Promise<{ videos: Video[] }> => {
+    const { data: userData, error: userError } = await supabase.auth.getUser();
+    if (userError || !userData.user) throw new Error('Not authenticated');
+
+    const { data, error } = await supabase
+      .from('videos')
+      .select('*')
+      .eq('uploaded_by', userData.user.id);
+
+    if (error) throw error;
+    return { videos: (data || []) as Video[] };
+  },
+
+  deleteVideo: async (videoId: string): Promise<{ success: boolean; error?: string }> => {
+    const { data: userData, error: userError } = await supabase.auth.getUser();
+    if (userError || !userData.user) return { success: false, error: 'Not authenticated' };
+
+    const { data: video, error: fetchError } = await supabase
+      .from('videos')
+      .select('video_file')
+      .eq('id', videoId)
+      .eq('uploaded_by', userData.user.id)
+      .single();
+
+    if (fetchError) return { success: false, error: fetchError.message };
+    if (!video) return { success: false, error: 'Video not found' };
+
+    // Extract path from public URL
+    const url = new URL(video.video_file);
+    const path = url.pathname.replace('/storage/v1/object/public/videos/', '');
+
+    // Delete from storage
+    const { error: storageError } = await supabase.storage.from('videos').remove([path]);
+    if (storageError) return { success: false, error: storageError.message };
+
+    // Delete from DB
+    const { error: deleteError } = await supabase
+      .from('videos')
+      .delete()
+      .eq('id', videoId);
+
+    if (deleteError) return { success: false, error: deleteError.message };
+
+    return { success: true };
+  },
+};
         }
 
         xhr.onload = () => {
@@ -345,4 +406,6 @@ export const adminApi = {
     if (!response.ok) return { success: false, error: data.error || 'Delete failed' };
     return { success: true };
   },
+=======
+>>>>>>> main
 };

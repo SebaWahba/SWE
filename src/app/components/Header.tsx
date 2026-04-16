@@ -169,10 +169,18 @@ export function Header() {
                           className="absolute right-0 mt-2 w-64 bg-gray-900 border border-gray-700 rounded-xl shadow-xl py-2 z-50"
                         >
                           <div className="px-4 py-3 border-b border-gray-700">
-                            <div className="flex items-center gap-3">
-                              <div className="w-10 h-10 rounded-full bg-gradient-to-br from-purple-500 to-pink-500 flex items-center justify-center">
-                                <User className="w-5 h-5 text-white" />
-                              </div>
+                              <div className="flex items-center gap-3">
+                                {currentProfile?.picture ? (
+                                  <img
+                                    src={currentProfile.picture}
+                                    alt={currentProfile.name}
+                                    className="w-10 h-10 rounded-full border-2 border-purple-500"
+                                  />
+                                ) : (
+                                  <div className="w-10 h-10 rounded-full bg-gradient-to-br from-purple-500 to-pink-500 flex items-center justify-center">
+                                    <User className="w-5 h-5 text-white" />
+                                  </div>
+                                )}
                               <div>
                                 <p className="font-semibold text-white truncate max-w-[150px]">{currentProfile?.name}</p>
                                 <p className="text-xs text-gray-400 truncate">{user.email}</p>
@@ -266,26 +274,26 @@ export function Header() {
                               <LogOut className="w-4 h-4" /> Sign Out
                             </button>
                           </div>
-                          <button
-                            onClick={() => { setShowHistoryModal(true); setShowUserMenu(false); }}
-                            className="w-full px-4 py-2.5 text-left text-sm text-gray-300 hover:bg-gray-800 flex items-center gap-2"
-                          >
-                            <History className="w-4 h-4" /> Watch History
-                          </button>
-                          {user.isAdmin && (
                             <button
-                              onClick={() => { navigate("/admin"); setShowUserMenu(false); }}
-                              className="w-full px-4 py-2.5 text-left text-sm text-purple-400 hover:bg-gray-800 flex items-center gap-2"
+                              onClick={() => { setShowHistoryModal(true); setShowUserMenu(false); }}
+                              className="w-full px-4 py-2.5 text-left text-sm text-gray-300 hover:bg-gray-800 flex items-center gap-2"
                             >
-                              <Shield className="w-4 h-4" /> Admin Dashboard
+                              <History className="w-4 h-4" /> Watch History
                             </button>
-                          )}
-                          <button
-                            onClick={() => { signOut(); setShowUserMenu(false); navigate("/"); }}
-                            className="w-full px-4 py-2.5 text-left text-sm text-red-400 hover:bg-gray-800 flex items-center gap-2"
-                          >
-                            <LogOut className="w-4 h-4" /> Sign Out
-                          </button>
+                            {user.isAdmin && (
+                              <button
+                                onClick={() => { navigate("/admin"); setShowUserMenu(false); }}
+                                className="w-full px-4 py-2.5 text-left text-sm text-purple-400 hover:bg-gray-800 flex items-center gap-2"
+                              >
+                                <Shield className="w-4 h-4" /> Admin Dashboard
+                              </button>
+                            )}
+                            <button
+                              onClick={() => { signOut(); setShowUserMenu(false); navigate("/"); }}
+                              className="w-full px-4 py-2.5 text-left text-sm text-red-400 hover:bg-gray-800 flex items-center gap-2"
+                            >
+                              <LogOut className="w-4 h-4" /> Sign Out
+                            </button>
                         </motion.div>
                       )}
                     </AnimatePresence>

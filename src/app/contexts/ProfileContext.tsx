@@ -3,7 +3,7 @@ import { dbApi } from "../lib/api";
 import { useAuth } from "./AuthContext";
 
 interface Profile {
-  picture: any;
+  picture?: string;
   id: string;
   account_id: string;
   name: string;
