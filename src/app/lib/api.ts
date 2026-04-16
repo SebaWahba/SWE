@@ -225,7 +225,6 @@ export const dbApi = {
       .eq('id', id);
     if (error) throw error;
   }
-<<<<<<< HEAD
 };
 
 export const adminApi = {
@@ -348,64 +347,4 @@ export const adminApi = {
 
     return { success: true };
   },
-};
-        }
-
-        xhr.onload = () => {
-          let data: any = {};
-          try {
-            data = JSON.parse(xhr.responseText || '{}');
-          } catch {
-            data = {};
-          }
-
-          if (xhr.status < 200 || xhr.status >= 300) {
-            resolve({ success: false, error: data?.error || `Upload failed: ${xhr.status}` });
-            return;
-          }
-
-          resolve({
-            success: Boolean(data?.success),
-            video: data?.video,
-            publicUrl: data?.publicUrl,
-            error: data?.error,
-          });
-        };
-
-        xhr.onerror = () => resolve({ success: false, error: 'Network error' });
-        xhr.open('POST', `${API_BASE}/admin/upload`);
-        xhr.setRequestHeader('Authorization', `Bearer ${token}`);
-        xhr.send(formData);
-      });
-
-      return result;
-    } catch (error) {
-      return { success: false, error: error instanceof Error ? error.message : 'Upload failed' };
-    }
-  },
-
-  getMyVideos: async (): Promise<{ videos: any[] }> => {
-    const headers = getAuthHeaders();
-    if (!headers) throw new Error('Not authenticated');
-
-    const response = await fetch(`${API_BASE}/admin/videos`, { headers });
-    const data = await response.json();
-    if (!response.ok) throw new Error(data.error || 'Failed to fetch videos');
-    return { videos: data.videos || [] };
-  },
-
-  deleteVideo: async (videoId: string): Promise<{ success: boolean; error?: string }> => {
-    const headers = getAuthHeaders();
-    if (!headers) return { success: false, error: 'Not authenticated' };
-
-    const response = await fetch(`${API_BASE}/admin/videos/${videoId}`, {
-      method: 'DELETE',
-      headers,
-    });
-    const data = await response.json();
-    if (!response.ok) return { success: false, error: data.error || 'Delete failed' };
-    return { success: true };
-  },
-=======
->>>>>>> main
 };
