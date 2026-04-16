@@ -81,6 +81,7 @@ export interface profiles {
     id : string;
     account_id : string; // user ID of the account owner
     name : string;
+    picture? : string; // profile picture URL
     recommender_profile : any[];
     default_language : string;
     created_at : string; // ISO date string

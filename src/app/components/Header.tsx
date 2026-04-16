@@ -1,27 +1,32 @@
 import { Link, useLocation, useNavigate } from "react-router";
-import { Search, Sparkles, LogOut, User, History, Shield } from "lucide-react";
+import { Search, Sparkles, LogOut, User, History, Plus, Trash2, Shield } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
 import { useState, useEffect, useRef } from "react";
 import { useAuth } from "../contexts/AuthContext";
+import { useProfile } from "../contexts/ProfileContext";
 import { WatchHistoryPanel } from "./WatchHistoryPanel";
+import { toast } from "sonner";
 
 export function Header() {
   const location = useLocation();
   const navigate = useNavigate();
   const { user, signOut } = useAuth();
+  const { profiles, currentProfile, setCurrentProfile, addProfile, deleteProfile, loading: profileLoading } = useProfile();
   const [isScrolled, setIsScrolled] = useState(false);
   const [showUserMenu, setShowUserMenu] = useState(false);
   const [showHistoryModal, setShowHistoryModal] = useState(false);
+  const [showAddProfile, setShowAddProfile] = useState(false);
+  const [newProfileName, setNewProfileName] = useState('');
+  const [newProfileLanguage, setNewProfileLanguage] = useState('en');
+  const [deletingProfileId, setDeletingProfileId] = useState<string | null>(null);
   const menuRef = useRef<HTMLDivElement>(null);
 
-  // Proper scroll listener with cleanup
   useEffect(() => {
     const handleScroll = () => setIsScrolled(window.scrollY > 50);
     window.addEventListener("scroll", handleScroll, { passive: true });
     return () => window.removeEventListener("scroll", handleScroll);
   }, []);
 
-  // Close menu on outside click
   useEffect(() => {
     const handleClick = (e: MouseEvent) => {
       if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
@@ -36,6 +41,19 @@ export function Header() {
 
   const isOnApp = location.pathname !== "/" && location.pathname !== "/login";
 
+  const handleAddProfile = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (newProfileName.trim()) {
+      try {
+        await addProfile(newProfileName, newProfileLanguage);
+        setShowAddProfile(false);
+        setNewProfileName('');
+      } catch (error) {
+        console.error('Error adding profile:', error);
+      }
+    }
+  };
+
   return (
     <motion.header
       initial={{ y: -100 }}
@@ -46,7 +64,6 @@ export function Header() {
     >
       <div className="container mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex items-center justify-between h-16 sm:h-20">
-          {/* Logo */}
           <Link to={user ? "/browse" : "/"} className="flex items-center gap-2 group">
             <motion.div
               whileHover={{ rotate: 360, scale: 1.1 }}
@@ -75,7 +92,6 @@ export function Header() {
             </span>
           </Link>
 
-          {/* Navigation */}
           {isOnApp && (
             <nav className="hidden md:flex items-center gap-6">
               <Link
@@ -97,7 +113,6 @@ export function Header() {
             </nav>
           )}
 
-          {/* Right side */}
           <div className="flex items-center gap-3 sm:gap-4">
             {isOnApp && (
               <>
@@ -148,11 +163,103 @@ export function Header() {
                           initial={{ opacity: 0, y: -10 }}
                           animate={{ opacity: 1, y: 0 }}
                           exit={{ opacity: 0, y: -10 }}
-                          className="absolute right-0 mt-2 w-56 bg-gray-900 border border-gray-700 rounded-xl shadow-xl py-2 z-50"
+                          className="absolute right-0 mt-2 w-64 bg-gray-900 border border-gray-700 rounded-xl shadow-xl py-2 z-50"
                         >
                           <div className="px-4 py-3 border-b border-gray-700">
-                            <p className="font-semibold text-white truncate">{user.name}</p>
-                            <p className="text-sm text-gray-400 truncate">{user.email}</p>
+                            <div className="flex items-center gap-3">
+                              {currentProfile?.picture ? (
+                                <img
+                                  src={currentProfile.picture}
+                                  alt={currentProfile.name}
+                                  className="w-10 h-10 rounded-full border-2 border-purple-500"
+                                />
+                              ) : (
+                                <div className="w-10 h-10 rounded-full bg-gradient-to-br from-purple-500 to-pink-500 flex items-center justify-center">
+                                  <User className="w-5 h-5 text-white" />
+                                </div>
+                              )}
+                              <div>
+                                <p className="font-semibold text-white truncate max-w-[150px]">{currentProfile?.name}</p>
+                                <p className="text-xs text-gray-400 truncate">{user.email}</p>
+                              </div>
+                            </div>
+                          </div>
+
+                          <div className="px-4 py-3 border-b border-gray-700">
+                            <p className="text-sm font-medium text-gray-300 mb-2">Profiles</p>
+                            <div className="space-y-2">
+                              {profiles.map(profile => (
+                                <div key={profile.id} className={`flex items-center gap-3 px-3 py-2 text-sm ${
+                                  currentProfile?.id === profile.id 
+                                    ? 'bg-gray-800 text-white' 
+                                    : 'text-gray-300 hover:bg-gray-800 hover:text-white'
+                                } rounded`}>
+                                  <button
+                                    onClick={() => setCurrentProfile(profile)}
+                                    className="flex items-center gap-3 flex-1 text-left"
+                                  >
+                                    {profile.picture ? (
+                                      <img
+                                        src={profile.picture}
+                                        alt={profile.name}
+                                        className="w-8 h-8 rounded-full border-2 border-purple-500"
+                                      />
+                                    ) : (
+                                      <div className="w-8 h-8 rounded-full bg-gradient-to-br from-purple-500 to-pink-500 flex items-center justify-center">
+                                        <User className="w-4 h-4 text-white" />
+                                      </div>
+                                    )}
+                                    <span className="flex-1 truncate">{profile.name}</span>
+                                    {currentProfile?.id === profile.id && (
+                                      <svg className="w-4 h-4 text-purple-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                                      </svg>
+                                    )}
+                                  </button>
+                                  {profiles.length > 1 && (
+                                    <button
+                                      onClick={async (e) => {
+                                        e.stopPropagation();
+                                        if (confirm(`Are you sure you want to delete "${profile.name}"?`)) {
+                                          try {
+                                            await deleteProfile(profile.id);
+                                            toast.success('Profile deleted');
+                                          } catch (error: any) {
+                                            toast.error(error.message || 'Failed to delete profile');
+                                          }
+                                        }
+                                      }}
+                                      className="p-2 text-gray-500 hover:text-red-400 transition-colors"
+                                      title="Delete profile"
+                                    >
+                                      <Trash2 className="w-4 h-4" />
+                                    </button>
+                                  )}
+                                </div>
+                              ))}
+                              <button
+                                onClick={() => setShowAddProfile(true)}
+                                className="w-full flex items-center gap-3 px-3 py-2 text-left text-sm text-purple-400 hover:bg-gray-800/50 rounded"
+                              >
+                                <Plus className="w-4 h-4" />
+                                <span className="flex-1">Add Profile</span>
+                              </button>
+                            </div>
+                          </div>
+
+                          <div className="px-4 py-3">
+                            <button
+                              onClick={() => { setShowHistoryModal(true); setShowUserMenu(false); }}
+                              className="w-full px-4 py-2.5 text-left text-sm text-gray-300 hover:bg-gray-800 flex items-center gap-2"
+                            >
+                              <History className="w-4 h-4" /> Watch History
+                            </button>
+                            <button
+                              onClick={() => { signOut(); setShowUserMenu(false); navigate("/"); }}
+                              className="w-full px-4 py-2.5 text-left text-sm text-red-400 hover:bg-gray-800 flex items-center gap-2"
+                            >
+                              <LogOut className="w-4 h-4" /> Sign Out
+                            </button>
                           </div>
                           <button
                             onClick={() => { setShowHistoryModal(true); setShowUserMenu(false); }}
@@ -192,7 +299,6 @@ export function Header() {
         </div>
       </div>
 
-      {/* Watch History Modal */}
       <AnimatePresence>
         {showHistoryModal && (
           <>
@@ -220,6 +326,82 @@ export function Header() {
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
                 </svg>
               </button>
+            </motion.div>
+          </>
+        )}
+      </AnimatePresence>
+
+      <AnimatePresence>
+        {showAddProfile && (
+          <>
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setShowAddProfile(false)}
+              className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50"
+            />
+            <motion.div
+              initial={{ opacity: 0, scale: 0.9 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.9 }}
+              className="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 bg-gray-900 rounded-2xl border border-gray-700 shadow-2xl z-50 max-w-md w-full p-6"
+            >
+              <div className="space-y-6">
+                <div className="flex justify-between items-start">
+                  <h3 className="text-lg font-semibold text-white">Add Profile</h3>
+                  <button
+                    onClick={() => setShowAddProfile(false)}
+                    className="text-gray-400 hover:text-white"
+                  >
+                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                    </svg>
+                  </button>
+                </div>
+
+                <form onSubmit={handleAddProfile} className="space-y-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-300 mb-1">Profile Name</label>
+                    <input
+                      type="text"
+                      value={newProfileName}
+                      onChange={(e) => setNewProfileName(e.target.value)}
+                      placeholder="Enter profile name"
+                      className="w-full px-4 py-3 bg-gray-800/50 border border-gray-600 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:border-purple-500 transition-colors"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-300 mb-1">Default Language</label>
+                    <select
+                      value={newProfileLanguage}
+                      onChange={(e) => setNewProfileLanguage(e.target.value)}
+                      className="w-full px-4 py-3 bg-gray-800/50 border border-gray-600 rounded-lg text-white focus:outline-none focus:border-purple-500 transition-colors"
+                    >
+                      <option value="en">English</option>
+                      <option value="es">Spanish</option>
+                      <option value="fr">French</option>
+                      <option value="de">German</option>
+                      <option value="ja">Japanese</option>
+                      <option value="ko">Korean</option>
+                      <option value="zh">Chinese</option>
+                    </select>
+                  </div>
+
+                  <button
+                    type="submit"
+                    disabled={profileLoading || !newProfileName.trim()}
+                    className="w-full px-6 py-3 bg-gradient-to-r from-purple-600 to-pink-600 text-white rounded-lg font-semibold text-base hover:from-purple-500 hover:to-pink-500 transition-all shadow-lg disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    {profileLoading ? 'Adding...' : 'Add Profile'}
+                  </button>
+                </form>
+
+                <p className="text-xs text-gray-500 text-center">
+                  Profiles help keep your viewing history and recommendations separate
+                </p>
+              </div>
             </motion.div>
           </>
         )}
