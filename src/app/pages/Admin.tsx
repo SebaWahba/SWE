@@ -550,6 +550,9 @@ export default function Admin() {
   const [accessDenied, setAccessDenied] = useState(false);
 
   useEffect(() => {
+    if(!user){
+      setAccessDenied(true);
+    }
     if (user && user.isAdmin !== true) {
       setAccessDenied(true);
     }

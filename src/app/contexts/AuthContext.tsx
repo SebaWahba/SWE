@@ -1,3 +1,4 @@
+import * as React from "react";
 import { createContext, useContext, useState, useEffect, ReactNode, useCallback } from "react";
 import { authApi, supabase } from "../lib/api";
 
@@ -34,125 +35,99 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [accessToken, setAccessToken] = useState<string | null>(null);
+  // Default to true so child components wait until initial auth finishes
   const [isLoading, setIsLoading] = useState(true);
 
-  // Initialize auth state once on mount
+  // 1. Handle Auth State Changes Only
   useEffect(() => {
-    const initAuth = async () => {
-      try {
-        console.log('Initializing auth...');
-        // Get initial session
-        const { data: { session }, error } = await supabase.auth.getSession();
-        
-        console.log('Initial session:', session);
-        console.log('Initial session error:', error);
-        
-        if (error) {
-          console.error('Error getting session:', error);
-        }
-        
+    let mounted = true;
+
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(
+      (event, session) => {
+        if (!mounted) return;
+
+        console.log('Auth state change:', event, session?.user?.id);
+
         if (session?.user) {
-          console.log('Setting user from initial session');
           setAccessToken(session.access_token);
-          setUser({
-            id: session.user.id,
-            name: session.user.user_metadata?.full_name || 
-                  session.user.user_metadata?.name || 
-                  session.user.email?.split('@')[0] || 'User',
-            email: session.user.email || session.user.user_metadata?.email || '',
-            picture: session.user.user_metadata?.avatar_url || 
-                    session.user.user_metadata?.picture,
-            emailVerified: session.user.email_confirmed_at ? true : false,
-            isAdmin: true, // TODO: check from database
-          });
-        } else {
-          console.log('No initial session found');
-        }
-      } catch (error) {
-        console.error('Error initializing auth:', error);
-      } finally {
-        setIsLoading(false);
-      }
-    };
-
-    initAuth();
-
-    // Listen for auth state changes
-    let subscription: any = null;
-    
-    try {
-      const { data: { subscription: sub } } = supabase.auth.onAuthStateChange(
-        async (event, session) => {
-          console.log('Auth state change:', event, session);
-          console.log('Session user:', session?.user);
-          console.log('Session user metadata:', session?.user?.user_metadata);
           
-          if (session?.user) {
-            setAccessToken(session.access_token);
-            setUser({
+          setUser((prevUser) => {
+            // If the user is the same, preserve their isAdmin status to prevent UI flickering
+            const isAdmin = prevUser?.id === session.user.id ? prevUser.isAdmin : undefined;
+            
+            return {
               id: session.user.id,
               name: session.user.user_metadata?.full_name || 
                     session.user.user_metadata?.name || 
                     session.user.email?.split('@')[0] || 'User',
               email: session.user.email || session.user.user_metadata?.email || '',
               picture: session.user.user_metadata?.avatar_url || 
-                      session.user.user_metadata?.picture,
-              emailVerified: session.user.email_confirmed_at ? true : false,
-              isAdmin: true, // TODO: check from database
-            });
-          } else {
-            setUser(null);
-            setAccessToken(null);
-          }
-          
-          setIsLoading(false);
+                       session.user.user_metadata?.picture,
+              emailVerified: !!session.user.email_confirmed_at,
+              isAdmin: isAdmin, 
+            };
+          });
+        } else {
+          setUser(null);
+          setAccessToken(null);
         }
-      );
-      subscription = sub;
-    } catch (error) {
-      console.error('Error setting up auth listener:', error);
-      setIsLoading(false);
-    }
+        
+        setIsLoading(false);
+      }
+    );
 
     return () => {
-      if (subscription) {
-        subscription.unsubscribe();
-      }
+      mounted = false;
+      subscription.unsubscribe();
     };
   }, []);
 
+  // 2. Fetch Admin Status in a Separate Effect
+  useEffect(() => {
+    let mounted = true;
+
+    const fetchAdminStatus = async () => {
+      // Only fetch if we have a user and we haven't checked their admin status yet
+      if (user?.id && user.isAdmin === undefined) {
+        try {
+          const isAdmin = await authApi.checkIsAdmin(user.id);
+          if (mounted) {
+            setUser((prev) => (prev ? { ...prev, isAdmin } : null));
+          }
+        } catch (error) {
+          console.error("Failed to fetch admin status", error);
+          if (mounted) {
+            setUser((prev) => (prev ? { ...prev, isAdmin: false } : null));
+          }
+        }
+      }
+    };
+
+    fetchAdminStatus();
+
+    return () => {
+      mounted = false;
+    };
+  }, [user?.id, user?.isAdmin]);
+
   const signInWithGoogle = useCallback(async () => {
     await authApi.signInWithGoogle();
-    // Supabase handles the OAuth flow automatically
   }, []);
 
   const signInWithEmail = useCallback(async (email: string, password: string) => {
     try {
       setIsLoading(true);
-      const { session, user: supaUser } = await authApi.signIn(email, password);
-      
-      if (supaUser) {
-        setAccessToken(session?.access_token || null);
-        setUser({
-          id: supaUser.id,
-          name: supaUser.name || email.split('@')[0],
-          email: supaUser.email || email,
-          picture: supaUser.picture,
-          emailVerified: supaUser.emailVerified !== false,
-          isAdmin: true,
-        });
-      }
+      await authApi.signIn(email, password);
     } finally {
-      setIsLoading(false);
+      // We don't set loading to false here because onAuthStateChange will catch the event
+      // and handle the loading state properly.
     }
   }, []);
 
   const signUp = useCallback(async (email: string, password: string, name?: string) => {
     try {
       setIsLoading(true);
-      const data = await authApi.signUp(email, password, name);
-
-      return data as SignUpResult;
+      return (await authApi.signUp(email, password, name)) as SignUpResult;
     } finally {
       setIsLoading(false);
     }
@@ -164,12 +139,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const signOut = useCallback(async () => {
     await authApi.signOut();
+    // Clearing user here is fine, but onAuthStateChange ('SIGNED_OUT') will also catch it
     setUser(null);
     setAccessToken(null);
   }, []);
 
   return (
-    <AuthContext.Provider value={{ user, signInWithGoogle, signInWithEmail, signUp, resendVerificationEmail, signOut, isLoading, accessToken }}>
+    <AuthContext.Provider value={{ 
+      user, signInWithGoogle, signInWithEmail, signUp, 
+      resendVerificationEmail, signOut, isLoading, accessToken 
+    }}>
       {children}
     </AuthContext.Provider>
   );

@@ -29,17 +29,49 @@ function BrowseContent() {
   const { user } = useAuth();
   const [videos, setVideos] = useState<Video[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-
+  
   useEffect(() => {
     const fetchVideos = async () => {
       try {
         setIsLoading(true);
+        console.debug("[DBG H1] Browse fetchVideos start", {
+          ts: Date.now(),
+          hasUser: Boolean(user),
+        });
+        // #region agent log
+        fetch('http://127.0.0.1:7261/ingest/fa3a52be-dbfb-4934-82fa-dd35d4226e2e',{method:'POST',mode:'no-cors',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'e74e94'},body:JSON.stringify({sessionId:'e74e94',runId:'run1',hypothesisId:'H1',location:'src/app/pages/Browse.tsx:37',message:'Browse fetchVideos started',data:{hasUser:Boolean(user)},timestamp:Date.now()})}).catch(()=>{});
+        // #endregion
+        console.log('Fetching videos...');
         const { videos: fetchedVideos } = await videoApi.getAll('All', 200, 0);
+        console.debug("[DBG H1] Browse fetchVideos resolved", {
+          ts: Date.now(),
+          count: fetchedVideos?.length ?? -1,
+        });
+        // #region agent log
+        fetch('http://127.0.0.1:7261/ingest/fa3a52be-dbfb-4934-82fa-dd35d4226e2e',{method:'POST',mode:'no-cors',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'e74e94'},body:JSON.stringify({sessionId:'e74e94',runId:'run1',hypothesisId:'H1',location:'src/app/pages/Browse.tsx:39',message:'Browse fetchVideos resolved',data:{videoCount:fetchedVideos?.length ?? -1},timestamp:Date.now()})}).catch(()=>{});
+        // #endregion
+        console.log('Fetched videos:', fetchedVideos);
         setVideos(fetchedVideos);
       } catch (error: any) {
+        console.debug("[DBG H2] Browse fetchVideos catch", {
+          ts: Date.now(),
+          name: error?.name,
+          message: error?.message,
+          code: error?.code,
+          hint: error?.hint,
+        });
+        // #region agent log
+        fetch('http://127.0.0.1:7261/ingest/fa3a52be-dbfb-4934-82fa-dd35d4226e2e',{method:'POST',mode:'no-cors',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'e74e94'},body:JSON.stringify({sessionId:'e74e94',runId:'run1',hypothesisId:'H2',location:'src/app/pages/Browse.tsx:40',message:'Browse fetchVideos caught error',data:{name:error?.name,message:error?.message,code:error?.code,hint:error?.hint},timestamp:Date.now()})}).catch(()=>{});
+        // #endregion
         console.error('[Browse] Error fetching videos:', error);
         toast.error('Failed to load videos. Please refresh the page.');
       } finally {
+        console.debug("[DBG H3] Browse fetchVideos finally", {
+          ts: Date.now(),
+        });
+        // #region agent log
+        fetch('http://127.0.0.1:7261/ingest/fa3a52be-dbfb-4934-82fa-dd35d4226e2e',{method:'POST',mode:'no-cors',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'e74e94'},body:JSON.stringify({sessionId:'e74e94',runId:'run1',hypothesisId:'H3',location:'src/app/pages/Browse.tsx:43',message:'Browse fetchVideos finally',data:{setLoadingFalse:true},timestamp:Date.now()})}).catch(()=>{});
+        // #endregion
         setIsLoading(false);
       }
     };

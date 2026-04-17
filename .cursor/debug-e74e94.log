@@ -1,0 +1,14 @@
+{"sessionId":"e74e94","runId":"run1","hypothesisId":"H1","location":"src/app/pages/Browse.tsx:37","message":"Browse fetchVideos started","data":{"hasUser":false},"timestamp":1776446980272}
+{"sessionId":"e74e94","runId":"run1","hypothesisId":"H1","location":"src/app/pages/Browse.tsx:37","message":"Browse fetchVideos started","data":{"hasUser":false},"timestamp":1776446988285}
+{"sessionId":"e74e94","runId":"run1","hypothesisId":"H4","location":"src/app/lib/api.ts:22","message":"videoApi.getAll entered","data":{"category":"All","limit":200,"offset":0},"timestamp":1776446988337}
+{"sessionId":"e74e94","runId":"run1","hypothesisId":"H2","location":"src/app/pages/Browse.tsx:40","message":"Browse fetchVideos caught error","data":{"message":"Error: Lock \"lock:sb-ydywwijhmjvtkgxkugnx-auth-token\" was released because another request stole it","code":"","hint":""},"timestamp":1776447002272}
+{"sessionId":"e74e94","runId":"run1","hypothesisId":"H3","location":"src/app/pages/Browse.tsx:43","message":"Browse fetchVideos finally","data":{"setLoadingFalse":true},"timestamp":1776447002273}
+{"sessionId":"e74e94","runId":"run1","hypothesisId":"H5","location":"src/app/lib/api.ts:27","message":"videoApi.getAll query resolved","data":{"hasError":false,"count":57,"total":57},"timestamp":1776447003246}
+{"sessionId":"e74e94","runId":"run1","hypothesisId":"H1","location":"src/app/pages/Browse.tsx:39","message":"Browse fetchVideos resolved","data":{"videoCount":57},"timestamp":1776447003247}
+{"sessionId":"e74e94","runId":"run1","hypothesisId":"H3","location":"src/app/pages/Browse.tsx:43","message":"Browse fetchVideos finally","data":{"setLoadingFalse":true},"timestamp":1776447003248}
+{"sessionId":"e74e94","runId":"run1","hypothesisId":"H1","location":"src/app/pages/Browse.tsx:37","message":"Browse fetchVideos started","data":{"hasUser":false},"timestamp":1776447016628}
+{"sessionId":"e74e94","runId":"run1","hypothesisId":"H4","location":"src/app/lib/api.ts:22","message":"videoApi.getAll entered","data":{"category":"All","limit":200,"offset":0},"timestamp":1776447016629}
+{"sessionId":"e74e94","runId":"run1","hypothesisId":"H1","location":"src/app/pages/Browse.tsx:37","message":"Browse fetchVideos started","data":{"hasUser":false},"timestamp":1776447059533}
+{"sessionId":"e74e94","runId":"run1","hypothesisId":"H4","location":"src/app/lib/api.ts:22","message":"videoApi.getAll entered","data":{"category":"All","limit":200,"offset":0},"timestamp":1776447059534}
+{"sessionId":"e74e94","runId":"run1","hypothesisId":"H1","location":"src/app/pages/Browse.tsx:37","message":"Browse fetchVideos started","data":{"hasUser":false},"timestamp":1776447067728}
+{"sessionId":"e74e94","runId":"run1","hypothesisId":"H4","location":"src/app/lib/api.ts:22","message":"videoApi.getAll entered","data":{"category":"All","limit":200,"offset":0},"timestamp":1776447067730}

@@ -1,0 +1,7 @@
+---
+alwaysApply: true
+---
+
+console.log('Fetching videos...');
+        const { videos: fetchedVideos } = await videoApi.getAll('All', 200, 0);
+        console.log('Fetched videos:', fetchedVideos);

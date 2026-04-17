@@ -19,11 +19,17 @@ const supabase = createClient(`https://${projectId}.supabase.co`, publicAnonKey)
 export { supabase };
 export const videoApi = {
   getAll: async (category?: string, limit = 100, offset = 0): Promise<{ videos: Video[]; total: number }> => {
+    // #region agent log
+    fetch('http://127.0.0.1:7261/ingest/fa3a52be-dbfb-4934-82fa-dd35d4226e2e',{method:'POST',mode:'no-cors',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'e74e94'},body:JSON.stringify({sessionId:'e74e94',runId:'run1',hypothesisId:'H4',location:'src/app/lib/api.ts:22',message:'videoApi.getAll entered',data:{category:category ?? 'All',limit,offset},timestamp:Date.now()})}).catch(()=>{});
+    // #endregion
     let query = supabase.from('videos').select('*', { count: 'exact' });
     if (category && category !== 'All') {
       query = query.eq('genre', category);
     }
     const { data, error, count } = await query.range(offset, offset + limit - 1);
+    // #region agent log
+    fetch('http://127.0.0.1:7261/ingest/fa3a52be-dbfb-4934-82fa-dd35d4226e2e',{method:'POST',mode:'no-cors',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'e74e94'},body:JSON.stringify({sessionId:'e74e94',runId:'run1',hypothesisId:'H5',location:'src/app/lib/api.ts:27',message:'videoApi.getAll query resolved',data:{hasError:Boolean(error),errorName:error?.name,errorMessage:error?.message,count:data?.length ?? 0,total:count ?? 0},timestamp:Date.now()})}).catch(()=>{});
+    // #endregion
     if (error) throw error;
     return { videos: (data || []) as Video[], total: count || 0 };
   },
@@ -133,6 +139,19 @@ export const authApi = {
     if (error) throw error;
     return data.user;
   },
+    checkIsAdmin: async (userId: string): Promise<boolean> => {
+      const { data, error } = await supabase
+      .from('users')
+      .select('is_admin')
+      .eq('id', userId)
+      .maybeSingle()
+    if(error){ 
+      console.log('Error checking admin status:', error);
+      return false
+    }
+    return data?.is_admin || false;
+
+  }
 };
 
 export const recommendationApi = {
