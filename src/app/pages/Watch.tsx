@@ -57,6 +57,42 @@ function WatchContent() {
     setCurrentTimeDisplay(formatTime(current));
   };
 
+  // Keyboard shortcuts
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      // Don't trigger if the user is typing in the chat or search bar!
+      if (document.activeElement?.tagName === 'INPUT' || document.activeElement?.tagName === 'TEXTAREA') {
+        return;
+      }
+
+      if (!videoRef.current) return;
+
+      if (e.key === 'ArrowRight') {
+        e.preventDefault(); // Stops the page from scrolling right
+        videoRef.current.currentTime = Math.min(
+          videoRef.current.currentTime + 10, 
+          videoRef.current.duration
+        );
+      } else if (e.key === 'ArrowLeft') {
+        e.preventDefault(); // Stops the page from scrolling left
+        videoRef.current.currentTime = Math.max(
+          videoRef.current.currentTime - 10, 
+          0
+        );
+      } else if (e.key === ' ') {
+        e.preventDefault(); // Stops the spacebar from scrolling down the page
+        handlePlayPause();
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    
+    // Cleanup the listener when the user leaves the page
+    return () => {
+      window.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [isPlaying]); // Re-run if play state changes so the spacebar logic stays fresh
+
 
 
   
