@@ -371,4 +371,30 @@ export const adminApi = {
 
     return { success: true };
   },
+  editVideo: async (
+    videoId: string, 
+    updates: Partial<Video>
+  ): Promise<{ success: boolean; video?: Video; error?: string }> => {
+    
+    // 1. Authenticate user
+    const { data: userData, error: userError } = await supabase.auth.getUser();
+    if (userError || !userData.user) {
+      return { success: false, error: 'Not authenticated' };
+    }
+
+    // 2. Perform the update
+    const { data, error } = await supabase
+      .from('videos')
+      .update(updates)     // This dynamically updates whatever you passed in!
+      .eq('id', videoId)
+      .eq('uploaded_by', userData.user.id)
+      .select()
+      .single();
+    
+    // 3. Handle responses
+    if (error) return { success: false, error: error.message };
+    if (!data) return { success: false, error: 'Video not found' };
+
+    return { success: true, video: data };
+  }
 };

@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect } from "react";
 import { motion } from "motion/react";
-import { Upload, X, Film, Trash2, CheckCircle, AlertCircle } from "lucide-react";
+import { Upload, X, Film, Trash2, CheckCircle, AlertCircle, Edit } from "lucide-react";
 import { Header } from "../components/Header";
 import { useAuth } from "../contexts/AuthContext";
 import { adminApi } from "../lib/api";
@@ -32,7 +32,16 @@ import {
   TableHeader,
   TableRow,
 } from "../components/ui/table";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from "../components/ui/dialog";
 import React from "react";
+import { EditModal } from "../components/EditModal";
 
 const GENRES = [
   "Nature & Wildlife",
@@ -83,6 +92,45 @@ function AdminContent() {
   const [myVideos, setMyVideos] = useState<UploadedVideo[]>([]);
   const [isLoadingVideos, setIsLoadingVideos] = useState(false);
   const [deletingId, setDeletingId] = useState<string | null>(null);
+
+  const [editingVideo, setEditingVideo] = useState<UploadedVideo | null>(null);
+  const [isUpdating, setIsUpdating] = useState(false);
+
+
+  const handleEditClick = (video: UploadedVideo) => {
+    // Populate the form with the selected video's data
+    setEditingVideo({ ...video });
+  };
+
+  const handleUpdate = async () => {
+    if (!editingVideo) return;
+    
+    setIsUpdating(true);
+    
+    // We don't want to send read-only fields to the update API
+    const { 
+      id, 
+      created_at, 
+      updated_at, 
+      video_file, 
+      uploaded_by, 
+      ...updates 
+    } = editingVideo;
+
+    const result = await adminApi.editVideo(id, updates);
+
+    setIsUpdating(false);
+
+    if (result.success) {
+      toast.success("Video updated successfully!");
+      setEditingVideo(null); // Close the modal
+      loadMyVideos(); // Refresh the table
+    } else {
+      toast.error("Update failed", {
+        description: result.error || "Something went wrong.",
+      });
+    }
+  };
 
   useEffect(() => {
     loadMyVideos();
@@ -521,6 +569,14 @@ function AdminContent() {
                             <Button
                               variant="ghost"
                               size="icon"
+                              onClick={() => handleEditClick(video)}
+                              disabled={deletingId === video.id}
+                            >
+                              <Edit className="h-4 w-4 text-primary" />
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="icon"
                               onClick={() => handleDelete(video)}
                               disabled={deletingId === video.id}
                             >
@@ -540,6 +596,13 @@ function AdminContent() {
             </Card>
           </div>
         </motion.div>
+        <EditModal 
+          editingVideo={editingVideo}
+          setEditingVideo={setEditingVideo}
+          isUpdating={isUpdating}
+          handleUpdate={handleUpdate}
+          genres={GENRES}
+        />
       </main>
     </div>
   );
