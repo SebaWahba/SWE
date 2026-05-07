@@ -113,6 +113,14 @@ export function Header() {
               >
                 AI Search
               </Link>
+              <Link
+                to="/downloads"
+                className={`text-sm font-medium transition-colors hover:text-white ${
+                  location.pathname === "/downloads" ? "text-white" : "text-gray-300"
+                }`}
+              >
+                Downloads
+              </Link>
             </nav>
           )}
 

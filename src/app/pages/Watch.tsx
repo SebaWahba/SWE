@@ -6,7 +6,11 @@ import { VideoPlayer } from "../components/VideoPlayer";
 import { toast } from "sonner";
 import { motion, AnimatePresence } from "motion/react";
 import { MessageSquare, Clock, X, Plus, Share2, Search, PlayCircle, Download } from "lucide-react";
+<<<<<<< HEAD
 import { useAuth } from "../contexts/AuthContext";
+=======
+import { downloadVideo, getDownloadedVideo, isDownloadSupported } from "../lib/downloads";
+>>>>>>> 4a055426520e99df320bc08dadc03cd0d1411fb6
 
 
 function WatchContent() {
@@ -19,6 +23,8 @@ function WatchContent() {
   const [transcriptSearch, setTranscriptSearch] = useState('');
   const [showChat, setShowChat] = useState(false);
   const [isDownloading, setIsDownloading] = useState(false);
+  const [downloadProgress, setDownloadProgress] = useState(0);
+  const [isDownloaded, setIsDownloaded] = useState(false);
   const videoRef = useRef<HTMLVideoElement>(null);
 
   // Video logic
@@ -60,34 +66,67 @@ function WatchContent() {
   };
 
 
-//  const handleDownload = () => {
-//     if (!video?.video_file) return;
+ const handleDownload = async () => {
+    const sourceUrl = video?.video_file || video?.src || video?.videoUrl;
+    if (!sourceUrl) {
+      toast.error("This video does not have a downloadable source.");
+      return;
+    }
+    if (!isDownloadSupported()) {
+      toast.error("Downloads are not supported on this device.");
+      return;
+    }
+    if (isDownloaded) {
+      toast.success("This title is already downloaded.");
+      return;
+    }
+
+    try {
+      setIsDownloading(true);
+      setDownloadProgress(0);
+      await downloadVideo({
+        video: {
+          id: video.id,
+          title: video.title,
+          description: video.description,
+          genre: video.genre,
+          duration: video.duration,
+          video_file: sourceUrl,
+        },
+        onProgress: (progressPercent) => {
+          setDownloadProgress(progressPercent);
+        },
+        onLowStorageWarning: (message) => {
+          toast.warning(message);
+        },
+      });
+      setIsDownloaded(true);
+      toast.success("Download complete. Available in Downloads.");
+    } catch (error: any) {
+      toast.error(error?.message || "Download failed. Please try again.");
+    } finally {
+      setIsDownloading(false);
+    }
+  };
+  
+// const handleDownload = async () => {
+//   if (!video?.video_file) return;
+//   const isSupabase = video.video_file.includes('supabase.co');
+//   if (isSupabase) {
 //     const a = document.createElement('a');
 //     a.href = `${video.video_file}?download=${video.title || 'video'}.mp4`;
 //     a.download = `${video.title || 'video'}.mp4`;
 //     a.click();
-//   };
-  
-const handleDownload = async () => {
-  if (!video?.video_file) return;
-  
-  const isSupabase = video.video_file.includes('supabase.co');
-  
-  if (isSupabase) {
-    const a = document.createElement('a');
-    a.href = `${video.video_file}?download=${video.title || 'video'}.mp4`;
-    a.download = `${video.title || 'video'}.mp4`;
-    a.click();
-  } else {
-    const response = await fetch(video.video_file);
-    const blob = await response.blob();
-    const a = document.createElement('a');
-    a.href = URL.createObjectURL(blob);
-    a.download = `${video.title || 'video'}.mp4`;
-    a.click();
-    URL.revokeObjectURL(a.href);
-  }
-};
+//   } else {
+//     const response = await fetch(video.video_file);
+//     const blob = await response.blob();
+//     const a = document.createElement('a');
+//     a.href = URL.createObjectURL(blob);
+//     a.download = `${video.title || 'video'}.mp4`;
+//     a.click();
+//     URL.revokeObjectURL(a.href);
+//   }
+// };
 
   const keyMoments = (video?.timestamps || []) as { time: string; label: string }[];
   
@@ -118,6 +157,7 @@ const handleDownload = async () => {
     fetchVideo();
   }, [id]);
 
+<<<<<<< HEAD
   const handleShare = () => {
     const url = window.location.href;
     navigator.clipboard.writeText(url)
@@ -137,6 +177,20 @@ const handleDownload = async () => {
       navigate(`/login?redirectTo=${encodeURIComponent(location.pathname)}`);
     }
   }, [user, authLoading, navigate, location.pathname]);
+=======
+  useEffect(() => {
+    const checkDownloadStatus = async () => {
+      if (!id || !isDownloadSupported()) return;
+      try {
+        const downloaded = await getDownloadedVideo(id);
+        setIsDownloaded(Boolean(downloaded));
+      } catch {
+        setIsDownloaded(false);
+      }
+    };
+    checkDownloadStatus();
+  }, [id]);
+>>>>>>> 4a055426520e99df320bc08dadc03cd0d1411fb6
 
   const jumpToTime = (timeStr: string) => {
     const parts = timeStr.split(':').map(Number);
@@ -279,11 +333,20 @@ const handleDownload = async () => {
               </button>
               <button
                 onClick={handleDownload}
+                disabled={isDownloading}
                 className="w-full py-5 bg-gradient-to-r from-purple-600 to-purple-500 text-white font-black rounded-2xl hover:scale-[1.02] active:scale-95 transition-all flex items-center justify-center gap-3 shadow-lg shadow-purple-500/20 hover:shadow-purple-500/40"
               >
                 <Download size={20} />
-                Download Video
+                {isDownloaded ? "Downloaded" : isDownloading ? `Downloading ${Math.round(downloadProgress)}%` : "Download Video"}
               </button>
+              {isDownloading && (
+                <div className="w-full h-2 rounded-full bg-white/10 overflow-hidden">
+                  <div
+                    className="h-full bg-purple-500 transition-all duration-300"
+                    style={{ width: `${Math.max(2, downloadProgress)}%` }}
+                  />
+                </div>
+              )}
               <div className="grid grid-cols-2 gap-4">
                 <button 
                   onClick={handleShare}
