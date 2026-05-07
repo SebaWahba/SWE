@@ -1,6 +1,7 @@
 import { useParams, useNavigate } from "react-router";
 import { useState, useEffect, useRef } from "react";
-import { videoApi } from "../lib/api"; 
+import { videoApi, watchHistoryApi, supabase } from "../lib/api"; 
+import { useProfile } from "../contexts/ProfileContext"; 
 import { Header } from "../components/Header";
 import { VideoPlayer } from "../components/VideoPlayer";
 import { toast } from "sonner";
@@ -11,6 +12,7 @@ import { downloadVideo, getDownloadedVideo, isDownloadSupported } from "../lib/d
 
 function WatchContent() {
   const { id } = useParams();
+  const { currentProfile } = useProfile();  
   const [video, setVideo] = useState<any | null>(null); 
   const [isLoading, setIsLoading] = useState(true);
   const [transcriptSearch, setTranscriptSearch] = useState('');
@@ -20,11 +22,58 @@ function WatchContent() {
   const [isDownloaded, setIsDownloaded] = useState(false);
   const videoRef = useRef<HTMLVideoElement>(null);
 
+  // Memory Banks to survive component destruction
+  const latestTimeRef = useRef<number>(0);
+  const latestDurationRef = useRef<number>(0);
+
   // Video logic
   const [isPlaying, setIsPlaying] = useState(false);
   const [progress, setProgress] = useState(0);
   const [currentTimeDisplay, setCurrentTimeDisplay] = useState("0:00");
   const [durationDisplay, setDurationDisplay] = useState("0:00");
+
+  // Continue Watching Logic State
+  const [savedTimestamp, setSavedTimestamp] = useState<number>(0);
+  const [hasResumed, setHasResumed] = useState(false);
+
+  // 1. Fetch the saved timestamp when the page loads
+  useEffect(() => {
+    const fetchHistory = async () => {
+      if (!id || !currentProfile?.id) return;
+      const { data } = await supabase
+        .from('watch_history')
+        .select('progress_timestamp, completed') 
+        .eq('profile_id', currentProfile.id)
+        .eq('video_id', id)
+        .single();
+      
+      // Only resume IF there is a timestamp AND the video is NOT completed.
+      // If it is completed, we just let it naturally start at 0:00.
+      if (data && data.progress_timestamp && !data.completed) {
+        setSavedTimestamp(data.progress_timestamp);
+      }
+    };
+    fetchHistory();
+  }, [id, currentProfile]);
+
+  // 2. Safely resume the video ONLY after the browser loads its metadata
+  useEffect(() => {
+    const videoElement = videoRef.current;
+    if (!videoElement || savedTimestamp === 0 || hasResumed) return;
+
+    const handleLoadedMetadata = () => {
+      videoElement.currentTime = savedTimestamp;
+      setHasResumed(true);
+      toast.success(`Resumed from ${formatTime(savedTimestamp)}`);
+    };
+
+    if (videoElement.readyState >= 1) {
+      handleLoadedMetadata();
+    } else {
+      videoElement.addEventListener('loadedmetadata', handleLoadedMetadata);
+      return () => videoElement.removeEventListener('loadedmetadata', handleLoadedMetadata);
+    }
+  }, [savedTimestamp, hasResumed, isLoading]);
 
   const formatTime = (seconds: number) => {
     if (isNaN(seconds)) return "0:00";
@@ -52,8 +101,19 @@ function WatchContent() {
 
   const handleTimeUpdate = (current: number, duration: number) => {
     if (duration > 0) {
+      // Continuously update the memory bank
+      latestTimeRef.current = current;
+      latestDurationRef.current = duration;
+      
       setProgress((current / duration) * 100);
       setDurationDisplay(formatTime(duration));
+
+      const currentSecond = Math.floor(current);
+
+      // Save at exactly 3 seconds to register it, then every 10 seconds
+      if ((currentSecond === 3 || currentSecond % 10 === 0) && currentSecond !== 0 && currentProfile?.id) {
+        watchHistoryApi.saveProgress(currentProfile.id, id as string, current, duration);
+      }
     }
     setCurrentTimeDisplay(formatTime(current));
   };
@@ -173,8 +233,40 @@ function WatchContent() {
       videoRef.current.currentTime = seconds;
       videoRef.current.play();
       toast.success(`Jumped to ${timeStr}`);
+  // EXACT SAVE 1: When the user clicks pause
+  useEffect(() => {
+    if (!isPlaying && videoRef.current && currentProfile?.id && id) {
+      const current = videoRef.current.currentTime;
+      const duration = videoRef.current.duration;
+      
+      // Save exact timestamp (e.g., 14.732 seconds)
+      if (duration > 0 && current >= 3) {
+        watchHistoryApi.saveProgress(currentProfile.id, id, current, duration);
+      }
     }
-  };
+  }, [isPlaying, currentProfile, id]);
+
+  // EXACT SAVE 2: When navigating away, closing the tab, or refreshing
+  useEffect(() => {
+    const saveExactProgress = () => {
+      const current = latestTimeRef.current;
+      const duration = latestDurationRef.current;
+      
+      // Read directly from the Memory Bank
+      if (currentProfile?.id && id && duration > 0 && current >= 3) {
+        watchHistoryApi.saveProgress(currentProfile.id, id, current, duration);
+      }
+    };
+
+    // Catch browser tab closes
+    window.addEventListener('beforeunload', saveExactProgress);
+
+    return () => {
+      // Catch React Router navigation (e.g., clicking Home)
+      saveExactProgress();
+      window.removeEventListener('beforeunload', saveExactProgress);
+    };
+  }, [currentProfile, id]); 
 
   if (isLoading) return <div className="min-h-screen bg-black flex items-center justify-center font-bold text-purple-500 animate-pulse">Analyzing Video Data...</div>;
   if (!video) return <div className="p-20 text-center text-white">Video not found</div>;

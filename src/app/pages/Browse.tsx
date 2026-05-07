@@ -5,10 +5,10 @@ import { motion } from "motion/react";
 import { useRecommendations } from "../contexts/RecommendationContext";
 import { useAuth } from "../contexts/AuthContext";
 import { useProfile } from "../contexts/ProfileContext";
-import { Sparkles, TrendingUp } from "lucide-react";
+import { Sparkles, TrendingUp, PlaySquare } from "lucide-react"; 
 import { RecommendationTutorial } from "../components/RecommendationTutorial";
 import { useState, useEffect } from "react";
-import { videoApi } from "../lib/api";
+import { videoApi, watchHistoryApi } from "../lib/api";
 import { videos as Video } from "../lib/table-definitions";
 import { PageErrorBoundary } from "../components/PageErrorBoundary";
 import { toast } from "sonner";
@@ -27,7 +27,9 @@ const GENRES = [
 function BrowseContent() {
   const { recommendations, watchHistory, isLoading: recsLoading } = useRecommendations();
   const { user } = useAuth();
+  const { currentProfile } = useProfile();
   const [videos, setVideos] = useState<Video[]>([]);
+  const [continueWatching, setContinueWatching] = useState<Video[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   
   useEffect(() => {
@@ -52,6 +54,15 @@ function BrowseContent() {
         // #endregion
         console.log('Fetched videos:', fetchedVideos);
         setVideos(fetchedVideos);
+
+        // Fetch Continue Watching parallel to main catalog
+        if (user && currentProfile?.id) {
+          const historyData = await watchHistoryApi.getContinueWatching(currentProfile.id);
+          // Map the Supabase join object to a flat Video array for the VideoRow component
+          const mappedCwVideos = historyData.map((item: any) => item.videos).filter(Boolean);
+          setContinueWatching(mappedCwVideos);
+        }
+
       } catch (error: any) {
         console.debug("[DBG H2] Browse fetchVideos catch", {
           ts: Date.now(),
@@ -77,7 +88,7 @@ function BrowseContent() {
     };
 
     fetchVideos();
-  }, []);
+  }, [user, currentProfile]);
 
   // Group videos by genre
   const videosByGenre: Record<string, Video[]> = {};
@@ -113,6 +124,18 @@ function BrowseContent() {
         transition={{ duration: 0.6, delay: 0.2 }}
         className="-mt-32 relative z-10 pb-20"
       >
+        {/* Continue Watching Row*/}
+        {user && continueWatching.length > 0 && (
+          <div className="mb-8">
+             <div className="mx-4 sm:mx-6 lg:mx-8 flex items-center gap-2 mb-2">
+                <PlaySquare className="w-5 h-5 text-red-500" />
+                <h2 className="text-xl font-bold">Continue Watching</h2>
+             </div>
+             <VideoRow title="" videos={continueWatching} />
+          </div>
+        )}
+
+
         {/* Personalized Recommendations */}
         {user && watchHistory.length > 0 && recommendations.length > 0 && (
           <>

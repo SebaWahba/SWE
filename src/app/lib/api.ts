@@ -419,3 +419,80 @@ export const adminApi = {
     return { success: true, video: data };
   }
 };
+
+
+
+export const watchHistoryApi = {
+  /**
+   * Saves the user's progress based on FR1 and FR3 rules.
+   */
+  saveProgress: async (profileId: string, videoId: string, currentTime: number, duration: number) => {
+    if (!profileId || !videoId || duration <= 0) return;
+
+    const isCompleted = (currentTime / duration) >= 0.95; // 95% completion rule
+    
+    // Only save to DB if watched at least 3 seconds OR if it's marked completed
+    if (currentTime < 3 && !isCompleted) return;
+
+    const { error } = await supabase
+      .from('watch_history')
+      .upsert({
+        profile_id: profileId,
+        video_id: videoId,
+        progress_timestamp: Math.floor(currentTime),
+        completed: isCompleted,
+        watched_at: new Date().toISOString(),
+      }, { onConflict: 'profile_id, video_id' });
+
+    if (error) console.error("Error saving watch history:", error);
+  },
+
+  /**
+   * Fetches the "Continue Watching" list for the homepage.
+   */
+  getContinueWatching: async (profileId: string) => {
+    if (!profileId) return [];
+
+    // 1. Fetch only the watch_history data 
+    const { data: historyData, error: historyError } = await supabase
+      .from('watch_history')
+      .select('video_id, progress_timestamp')
+      .eq('profile_id', profileId)
+      .eq('completed', false)
+      .gte('progress_timestamp', 3)
+      .order('watched_at', { ascending: false })
+      .limit(10);
+
+    if (historyError) {
+      console.error("Error fetching watch history:", historyError);
+      return [];
+    }
+
+    if (!historyData || historyData.length === 0) return [];
+
+    // 2. Extract the video IDs from the history
+    const videoIds = historyData.map(record => record.video_id);
+
+    // 3. Fetch the actual video metadata for those specific IDs
+    const { data: videosData, error: videosError } = await supabase
+      .from('videos')
+      .select('*')
+      .in('id', videoIds);
+
+    if (videosError) {
+      console.error("Error fetching continue watching videos:", videosError);
+      return [];
+    }
+
+    // 4. Manually merge them together to simulate a database join
+    const joinedData = historyData.map(historyItem => {
+      const matchingVideo = videosData?.find(v => v.id === historyItem.video_id);
+      return {
+        progress_timestamp: historyItem.progress_timestamp,
+        videos: matchingVideo || null 
+      };
+    }).filter(item => item.videos !== null); // Filter out any orphaned history records
+
+    return joinedData;
+  }
+}
