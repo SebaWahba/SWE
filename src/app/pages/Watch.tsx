@@ -1,4 +1,4 @@
-import { useParams, useNavigate } from "react-router";
+import { useParams, useNavigate, useLocation } from "react-router";
 import { useState, useEffect, useRef } from "react";
 import { videoApi } from "../lib/api"; 
 import { Header } from "../components/Header";
@@ -6,10 +6,14 @@ import { VideoPlayer } from "../components/VideoPlayer";
 import { toast } from "sonner";
 import { motion, AnimatePresence } from "motion/react";
 import { MessageSquare, Clock, X, Plus, Share2, Search, PlayCircle, Download } from "lucide-react";
+import { useAuth } from "../contexts/AuthContext";
 
 
 function WatchContent() {
   const { id } = useParams();
+  const navigate = useNavigate();
+  const location = useLocation();
+  const { user, isLoading: authLoading } = useAuth();
   const [video, setVideo] = useState<any | null>(null); 
   const [isLoading, setIsLoading] = useState(true);
   const [transcriptSearch, setTranscriptSearch] = useState('');
@@ -113,6 +117,26 @@ const handleDownload = async () => {
     };
     fetchVideo();
   }, [id]);
+
+  const handleShare = () => {
+    const url = window.location.href;
+    navigator.clipboard.writeText(url)
+      .then(() => {
+        toast.success("Link copied to clipboard!", {
+          description: "You can now share this title with your friends.",
+        });
+      })
+      .catch(() => {
+        toast.error("Failed to copy link");
+      });
+  };
+
+  useEffect(() => {
+    if (!authLoading && !user) {
+      toast.error("Please sign in to view this content");
+      navigate(`/login?redirectTo=${encodeURIComponent(location.pathname)}`);
+    }
+  }, [user, authLoading, navigate, location.pathname]);
 
   const jumpToTime = (timeStr: string) => {
     const parts = timeStr.split(':').map(Number);
@@ -261,7 +285,10 @@ const handleDownload = async () => {
                 Download Video
               </button>
               <div className="grid grid-cols-2 gap-4">
-                <button className="py-4 bg-white/5 rounded-2xl flex items-center justify-center gap-2 hover:bg-white/10 transition-colors border border-white/5">
+                <button 
+                  onClick={handleShare}
+                  className="py-4 bg-white/5 rounded-2xl flex items-center justify-center gap-2 hover:bg-white/10 transition-colors border border-white/5"
+                >
                   <Share2 size={18} /> Share
                 </button>
                 <button 

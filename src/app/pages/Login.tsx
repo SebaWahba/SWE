@@ -1,6 +1,6 @@
 import { motion } from "motion/react";
 import { Chrome, Mail, Lock, User as UserIcon } from "lucide-react";
-import { useNavigate } from "react-router";
+import { useNavigate, useLocation } from "react-router";
 import { Header } from "../components/Header";
 import { useAuth } from "../contexts/AuthContext";
 import { useEffect, useState } from "react";
@@ -10,6 +10,10 @@ import { getSignUpValidationError } from "../lib/auth-validation";
 
 function LoginContent() {
   const navigate = useNavigate();
+  const location = useLocation();
+  const searchParams = new URLSearchParams(location.search);
+  const redirectTo = searchParams.get("redirectTo") || "/browse";
+
   const { signInWithGoogle, signInWithEmail, signUp, resendVerificationEmail, signOut, user, isLoading } = useAuth();
   const [isSignUp, setIsSignUp] = useState(false);
   const [email, setEmail] = useState("");
@@ -20,16 +24,16 @@ function LoginContent() {
   // Redirect if already logged in
   useEffect(() => {
     if (user) {
-      navigate("/browse");
+      navigate(redirectTo);
     }
-  }, [user, navigate]);
+  }, [user, navigate, redirectTo]);
 
   // Handle Google OAuth callback (Supabase handles this automatically, redirect to browse if authenticated)
   useEffect(() => {
     if (user && !isLoading) {
-      navigate("/browse");
+      navigate(redirectTo);
     }
-  }, [user, isLoading, navigate]);
+  }, [user, isLoading, navigate, redirectTo]);
 
   const handleGoogleLogin = async () => {
     if (googleLoading) return;
@@ -77,7 +81,7 @@ function LoginContent() {
       } else {
         await signInWithEmail(normalizedEmail, password);
         toast.success("Signed in successfully!");
-        navigate("/browse");
+        navigate(redirectTo);
       }
     } catch (error: any) {
       console.error('Auth error:', error);
