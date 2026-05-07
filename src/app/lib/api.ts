@@ -326,14 +326,17 @@ export const adminApi = {
     }
   },
 
-  getMyVideos: async (): Promise<{ videos: Video[] }> => {
+  getAllVideos: async (): Promise<{ videos: Video[] }> => {
     const { data: userData, error: userError } = await supabase.auth.getUser();
     if (userError || !userData.user) throw new Error('Not authenticated');
 
+    // Check if user is admin
+    const isAdmin = await authApi.checkIsAdmin(userData.user.id);
+    if (!isAdmin) throw new Error('Not authorized');
+
     const { data, error } = await supabase
       .from('videos')
-      .select('*')
-      .eq('uploaded_by', userData.user.id);
+      .select('*');
 
     if (error) throw error;
     return { videos: (data || []) as Video[] };
@@ -343,11 +346,13 @@ export const adminApi = {
     const { data: userData, error: userError } = await supabase.auth.getUser();
     if (userError || !userData.user) return { success: false, error: 'Not authenticated' };
 
+    // Check if user is admin
+    const isAdmin = await authApi.checkIsAdmin(userData.user.id);
+
     const { data: video, error: fetchError } = await supabase
       .from('videos')
       .select('video_file')
       .eq('id', videoId)
-      .eq('uploaded_by', userData.user.id)
       .single();
 
     if (fetchError) return { success: false, error: fetchError.message };
@@ -362,10 +367,17 @@ export const adminApi = {
     if (storageError) return { success: false, error: storageError.message };
 
     // Delete from DB
-    const { error: deleteError } = await supabase
+    const query = supabase
       .from('videos')
       .delete()
       .eq('id', videoId);
+
+    // If not admin, only allow deleting own videos
+    if (!isAdmin) {
+      query.eq('uploaded_by', userData.user.id);
+    }
+
+    const { error: deleteError } = await query;
 
     if (deleteError) return { success: false, error: deleteError.message };
 
@@ -382,14 +394,23 @@ export const adminApi = {
       return { success: false, error: 'Not authenticated' };
     }
 
+    // Check if user is admin
+    const isAdmin = await authApi.checkIsAdmin(userData.user.id);
+
     // 2. Perform the update
-    const { data, error } = await supabase
+    const query = supabase
       .from('videos')
       .update(updates)     // This dynamically updates whatever you passed in!
       .eq('id', videoId)
-      .eq('uploaded_by', userData.user.id)
       .select()
       .single();
+
+    // If not admin, only allow editing own videos
+    if (!isAdmin) {
+      query.eq('uploaded_by', userData.user.id);
+    }
+    
+    const { data, error } = await query;
     
     // 3. Handle responses
     if (error) return { success: false, error: error.message };

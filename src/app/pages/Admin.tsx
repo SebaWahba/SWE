@@ -124,7 +124,7 @@ function AdminContent() {
     if (result.success) {
       toast.success("Video updated successfully!");
       setEditingVideo(null); // Close the modal
-      loadMyVideos(); // Refresh the table
+      loadAllVideos(); // Refresh the table
     } else {
       toast.error("Update failed", {
         description: result.error || "Something went wrong.",
@@ -133,13 +133,13 @@ function AdminContent() {
   };
 
   useEffect(() => {
-    loadMyVideos();
+    loadAllVideos();
   }, []);
 
-  const loadMyVideos = async () => {
+  const loadAllVideos = async () => {
     setIsLoadingVideos(true);
     try {
-      const { videos } = await adminApi.getMyVideos();
+      const { videos } = await adminApi.getAllVideos();
       setMyVideos(videos || []);
     } catch (error) {
       console.error("Failed to load videos:", error);
@@ -241,7 +241,7 @@ function AdminContent() {
       if (fileInputRef.current) {
         fileInputRef.current.value = "";
       }
-      loadMyVideos();
+      loadAllVideos();
     } else {
       toast.error("Upload failed", {
         description: result.error || "Something went wrong. Please try again.",
@@ -258,7 +258,7 @@ function AdminContent() {
       toast.success("Video deleted", {
         description: `"${video.title}" has been removed.`,
       });
-      loadMyVideos();
+      loadAllVideos();
     } else {
       toast.error("Delete failed", {
         description: result.error || "Something went wrong.",
@@ -514,10 +514,10 @@ function AdminContent() {
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
                   <Film className="h-5 w-5" />
-                  My Uploaded Videos
+                  All Videos
                 </CardTitle>
                 <CardDescription>
-                  Videos you have uploaded to the platform
+                  Manage all videos in the platform
                 </CardDescription>
               </CardHeader>
               <CardContent>
@@ -543,8 +543,8 @@ function AdminContent() {
                         <TableHead>Genre</TableHead>
                         <TableHead>Release Year</TableHead>
                         <TableHead>Duration</TableHead>
-                        <TableHead>Status</TableHead>
-                        <TableHead>Date</TableHead>
+                         <TableHead>Status</TableHead>
+                         <TableHead>Date</TableHead>
                         <TableHead className="text-right">Actions</TableHead>
                       </TableRow>
                     </TableHeader>
@@ -557,14 +557,14 @@ function AdminContent() {
                           <TableCell>{video.genre}</TableCell>
                           <TableCell>{video.releaseYear}</TableCell>
                           <TableCell>{video.duration} min</TableCell>
-                          <TableCell>
-                            <span className="inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-semibold transition-colors focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 border-transparent bg-secondary text-secondary-foreground hover:bg-secondary/80">
-                              {video.status}
-                            </span>
-                          </TableCell>
-                          <TableCell className="text-muted-foreground">
-                            {formatDate(video.created_at)}
-                          </TableCell>
+                           <TableCell>
+                             <span className="inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-semibold transition-colors focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 border-transparent bg-secondary text-secondary-foreground hover:bg-secondary/80">
+                               {video.status}
+                             </span>
+                           </TableCell>
+                           <TableCell className="text-muted-foreground">
+                             {formatDate(video.created_at)}
+                           </TableCell>
                           <TableCell className="text-right">
                             <Button
                               variant="ghost"
