@@ -5,7 +5,8 @@ import { Header } from "../components/Header";
 import { VideoPlayer } from "../components/VideoPlayer";
 import { toast } from "sonner";
 import { motion, AnimatePresence } from "motion/react";
-import { MessageSquare, Clock, X, Plus, Share2, Search, PlayCircle } from "lucide-react";
+import { MessageSquare, Clock, X, Plus, Share2, Search, PlayCircle, Download } from "lucide-react";
+
 
 function WatchContent() {
   const { id } = useParams();
@@ -13,6 +14,7 @@ function WatchContent() {
   const [isLoading, setIsLoading] = useState(true);
   const [transcriptSearch, setTranscriptSearch] = useState('');
   const [showChat, setShowChat] = useState(false);
+  const [isDownloading, setIsDownloading] = useState(false);
   const videoRef = useRef<HTMLVideoElement>(null);
 
   // Video logic
@@ -54,8 +56,34 @@ function WatchContent() {
   };
 
 
-
+//  const handleDownload = () => {
+//     if (!video?.video_file) return;
+//     const a = document.createElement('a');
+//     a.href = `${video.video_file}?download=${video.title || 'video'}.mp4`;
+//     a.download = `${video.title || 'video'}.mp4`;
+//     a.click();
+//   };
   
+const handleDownload = async () => {
+  if (!video?.video_file) return;
+  
+  const isSupabase = video.video_file.includes('supabase.co');
+  
+  if (isSupabase) {
+    const a = document.createElement('a');
+    a.href = `${video.video_file}?download=${video.title || 'video'}.mp4`;
+    a.download = `${video.title || 'video'}.mp4`;
+    a.click();
+  } else {
+    const response = await fetch(video.video_file);
+    const blob = await response.blob();
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = `${video.title || 'video'}.mp4`;
+    a.click();
+    URL.revokeObjectURL(a.href);
+  }
+};
 
   const keyMoments = (video?.timestamps || []) as { time: string; label: string }[];
   
@@ -224,6 +252,13 @@ function WatchContent() {
             <div className="space-y-4">
               <button className="w-full py-5 bg-white text-black font-black rounded-2xl hover:scale-[1.02] active:scale-95 transition-all flex items-center justify-center gap-3">
                 <Plus size={20} /> Add to Collection
+              </button>
+              <button
+                onClick={handleDownload}
+                className="w-full py-5 bg-gradient-to-r from-purple-600 to-purple-500 text-white font-black rounded-2xl hover:scale-[1.02] active:scale-95 transition-all flex items-center justify-center gap-3 shadow-lg shadow-purple-500/20 hover:shadow-purple-500/40"
+              >
+                <Download size={20} />
+                Download Video
               </button>
               <div className="grid grid-cols-2 gap-4">
                 <button className="py-4 bg-white/5 rounded-2xl flex items-center justify-center gap-2 hover:bg-white/10 transition-colors border border-white/5">
