@@ -256,6 +256,9 @@ function WatchContent() {
       videoRef.current.currentTime = seconds;
       videoRef.current.play();
       toast.success(`Jumped to ${timeStr}`);
+    }
+  };
+
   // EXACT SAVE 1: When the user clicks pause
   useEffect(() => {
     if (!isPlaying && videoRef.current && currentProfile?.id && id) {
@@ -455,5 +458,4 @@ function WatchContent() {
   );
 }
 
-
-  }}
+export default WatchContent;
