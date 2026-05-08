@@ -10,12 +10,8 @@ export interface videos {
     intro_end : number; // in seconds
     recap_start : number; // in seconds
     recap_end : number; // in seconds
-<<<<<<< HEAD
-    video_file : string; // URL to the video file
-=======
     video_file : string; // URL to the HLS master playlist
     raw_video_file : string; // URL to the raw video file
->>>>>>> origin/multi_stream_upload
     uploaded_by : string; // user ID of the uploader
     created_at : string; // ISO date string
     updated_at : string; // ISO date string

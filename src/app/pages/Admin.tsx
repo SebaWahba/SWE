@@ -232,11 +232,7 @@ function AdminContent() {
       setGenre("");
       setReleaseYear("");
       setDuration("");
-<<<<<<< HEAD
-      setStatus('ready');
-=======
       setStatus('processing');
->>>>>>> origin/multi_stream_upload
       setIntroStart("");
       setIntroEnd("");
       setRecapStart("");
