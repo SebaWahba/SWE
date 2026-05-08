@@ -204,6 +204,14 @@ function WatchContent() {
       try {
         setIsLoading(true);
         const data = await videoApi.getById(id);
+<<<<<<< HEAD
+=======
+        if (data.status !== 'ready') {
+          toast.error("Video is not ready for playback.");
+          navigate('/browse');
+          return;
+        }
+>>>>>>> origin/multi_stream_upload
         setVideo(data);
       } catch (err) {
         toast.error("Video not found");

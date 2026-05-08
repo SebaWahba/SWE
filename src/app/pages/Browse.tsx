@@ -53,7 +53,11 @@ function BrowseContent() {
         fetch('http://127.0.0.1:7261/ingest/fa3a52be-dbfb-4934-82fa-dd35d4226e2e',{method:'POST',mode:'no-cors',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'e74e94'},body:JSON.stringify({sessionId:'e74e94',runId:'run1',hypothesisId:'H1',location:'src/app/pages/Browse.tsx:39',message:'Browse fetchVideos resolved',data:{videoCount:fetchedVideos?.length ?? -1},timestamp:Date.now()})}).catch(()=>{});
         // #endregion
         console.log('Fetched videos:', fetchedVideos);
+<<<<<<< HEAD
         setVideos(fetchedVideos);
+=======
+        setVideos(fetchedVideos.filter(video => video.status === 'ready'));
+>>>>>>> origin/multi_stream_upload
 
         // Fetch Continue Watching parallel to main catalog
         if (user && currentProfile?.id) {

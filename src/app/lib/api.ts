@@ -299,12 +299,20 @@ export const adminApi = {
         genre: genre || '',
         releaseYear: releaseYear || new Date().getFullYear(),
         duration: duration || 0,
+<<<<<<< HEAD
         status: status || 'ready',
+=======
+        status: 'processing',
+>>>>>>> origin/multi_stream_upload
         intro_start: intro_start || 0,
         intro_end: intro_end || 0,
         recap_start: recap_start || 0,
         recap_end: recap_end || 0,
         video_file: publicUrl,
+<<<<<<< HEAD
+=======
+        raw_video_file: null, // Will be populated by MediaConvert callback
+>>>>>>> origin/multi_stream_upload
         uploaded_by: user.id,
       };
 
@@ -320,11 +328,41 @@ export const adminApi = {
         return { success: false, error: insertError.message };
       }
 
+<<<<<<< HEAD
       return { success: true, video: insertedVideo, publicUrl };
     } catch (error) {
       return { success: false, error: error instanceof Error ? error.message : 'Upload failed' };
     }
   },
+=======
+        return { success: true, video: insertedVideo, publicUrl };
+      } catch (error) {
+        return { success: false, error: error instanceof Error ? error.message : 'Upload failed' };
+      }
+    },
+
+    updateVideoStatusAndUrl: async (videoId: string, status: 'processing' | 'ready' | 'deleted' | 'failed', videoFileUrl?: string): Promise<{ success: boolean; error?: string }> => {
+      try {
+        const updateData: { status: 'processing' | 'ready' | 'deleted' | 'failed'; video_file?: string | null } = { status };
+        if (videoFileUrl) {
+          updateData.video_file = videoFileUrl;
+        }
+
+        const { error } = await supabase
+          .from('videos')
+          .update(updateData)
+          .eq('id', videoId);
+
+        if (error) {
+          console.error(`Error updating video ${videoId} status:`, error);
+          return { success: false, error: error.message };
+        }
+        return { success: true };
+      } catch (error) {
+        return { success: false, error: error instanceof Error ? error.message : 'Failed to update video status' };
+      }
+    },
+>>>>>>> origin/multi_stream_upload
 
   getAllVideos: async (): Promise<{ videos: Video[] }> => {
     const { data: userData, error: userError } = await supabase.auth.getUser();
